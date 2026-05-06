@@ -106,4 +106,32 @@ export const useLoreStore = create((set, get) => ({
       }),
     });
   },
+
+  // --- NEW ACTIONS FOR SETTINGS ---
+
+  // Remove a field from the schema (e.g., deciding you don't need 'BGM Track' anymore)
+  removeFieldFromSchema: (target, fieldId) =>
+    set((state) => ({
+      schema: {
+        ...state.schema,
+        [target]: state.schema[target].filter((f) => f.id !== fieldId),
+      },
+    })),
+
+  // Create a brand new empty list (e.g., 'WeaponTypes')
+  createNewList: (listId) =>
+    set((state) => ({
+      lists: {
+        ...state.lists,
+        [listId]: [],
+      },
+    })),
+
+  // Delete an entire list
+  deleteList: (listId) =>
+    set((state) => {
+      const newLists = { ...state.lists };
+      delete newLists[listId];
+      return { lists: newLists };
+    }),
 }));
