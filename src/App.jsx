@@ -1,45 +1,32 @@
-import React from 'react';
-import ReactFlow, { Background, Controls } from 'reactflow';
-import 'reactflow/dist/style.css';
-import MainFlow from './components/MainFlow';
-
-const initialNodes = [
-  {
-    id: "1",
-    type: "dialogue", // Must be a string in quotes
-    position: { x: 100, y: 0 },
-    data: {
-      title: "Opening Scene",
-      speaker: "System",
-      content: "Start your story here!", // Or use an array for multiple lines
-      actions: [{ flag: "game_started", value: true }],
-    },
-  },
-  {
-    id: "2",
-    type: "dialogue", // Must be a string in quotes
-    position: { x: 100, y: 300 },
-    data: {
-      title: "The End",
-      speaker: "Narrator",
-      content: "And so, the journey began...",
-    },
-  },
-];
-const initialEdges = [
-  // {
-  //   id: '1-2',
-  //   source: '1',
-  //   target: '2',
-  //   type: 'step',
-  //   label: 'connects with'
-  // }
-];
+import { useState } from "react";
+import { Settings } from "lucide-react"; // Added this import
+import MainFlow from "./components/MainFlow";
+import SettingsEditor from "./components/SettingsEditor";
 
 export default function App() {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
   return (
-    <main>
-      <MainFlow initialEdges={initialEdges} initialNodes={initialNodes} />
-    </main>
+    <div className="relative h-screen w-screen bg-gray-100">
+      {/* Settings Button */}
+      <button
+        onClick={() => setSettingsOpen(true)}
+        className="absolute top-4 right-4 z-[100] bg-white p-3 rounded-full shadow-2xl border border-gray-200 hover:bg-gray-50 transition-all hover:scale-110 active:scale-95"
+        title="Engine Settings"
+      >
+        <Settings size={20} className="text-gray-600" />
+      </button>
+
+      {/* Main Workspace */}
+      <main className="h-full w-full">
+        <MainFlow />
+      </main>
+
+      {/* Overlays */}
+      <SettingsEditor
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
+    </div>
   );
 }
