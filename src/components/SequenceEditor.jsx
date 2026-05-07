@@ -7,7 +7,7 @@ import {
   ChevronRight,
   MessageSquare,
   ArrowLeft,
-} from "lucide-react";
+} from "lucide-react"; 
 
 export default function SequenceEditor({ nodeId, lines = [] }) {
   const { schema, updateNodeData } = useLoreStore();
@@ -48,6 +48,14 @@ export default function SequenceEditor({ nodeId, lines = [] }) {
   // DETAIL VIEW: The specific form for one line
   if (activeIndex !== null) {
     const currentLine = lines[activeIndex];
+
+    // SAFETY CHECK: If the store hasn't caught up with the index yet, show a loader or return null
+    if (!currentLine) {
+      return (
+        <div className="p-4 text-xs text-gray-400">Loading line data...</div>
+      );
+    }
+
     return (
       <div className="flex flex-col h-full bg-white animate-in slide-in-from-right duration-200">
         <button
@@ -65,7 +73,7 @@ export default function SequenceEditor({ nodeId, lines = [] }) {
               </label>
               <SmartInput
                 field={field}
-                value={currentLine[field.id]}
+                value={currentLine[field.id] || ""}
                 onChange={(val) => updateLine(activeIndex, field.id, val)}
               />
             </div>

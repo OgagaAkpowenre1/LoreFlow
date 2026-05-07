@@ -44,9 +44,19 @@ export default function FlagGroup({ value = [], onChange }) {
             ))}
           </select>
 
-          <select
+          {/* <select
             className="text-[10px] border rounded p-1 bg-white outline-none"
             value={flag.value.toString()} // Cast to string for the select
+            onChange={(e) => updateFlag(i, "value", e.target.value === "true")}
+          >
+            <option value="true">ON</option>
+            <option value="false">OFF</option>
+          </select> */}
+
+          <select
+            className="text-[10px] border rounded p-1 bg-white outline-none"
+            /* Added ?? true to prevent the toString() crash */
+            value={(flag.value ?? true).toString()}
             onChange={(e) => updateFlag(i, "value", e.target.value === "true")}
           >
             <option value="true">ON</option>

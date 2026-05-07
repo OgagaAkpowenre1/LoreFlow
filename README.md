@@ -304,3 +304,8 @@ Building a **Schema-Driven System** takes more time *at the start* (about 2 extr
 Once the "Smart Dropdown" and "Dynamic Field" components are finished, you never have to write another form again. You just update the JSON in your store and the UI builds itself.
 
 **Shall we start by setting up the Zustand Store to handle these dynamic lists and schemas?** It’s the "engine" that makes everything else work.
+
+
+Add strict type checking when creating types in the settings, allow the user to only pick from defined types like lists, sequence lists, text and so on
+Improve the popups
+Allow users to add directly in the predefined lists section

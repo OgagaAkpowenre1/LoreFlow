@@ -1,6 +1,15 @@
 import { create } from "zustand";
 import { addEdge, applyNodeChanges, applyEdgeChanges } from "reactflow";
 
+export const ALLOWED_TYPES = [
+  { id: "text", label: "Short Text" },
+  { id: "textarea", label: "Long Text" },
+  { id: "number", label: "Number" },
+  { id: "list", label: "Dropdown List" },
+  { id: "flag_group", label: "Logic Flags" },
+  { id: "sequence", label: "Dialogue Sequence" },
+];
+
 export const useLoreStore = create((set, get) => ({
   // --- 1. THE SCHEMA (The Blueprint) ---
   // This defines what inputs appear in your sidebar
@@ -30,6 +39,15 @@ export const useLoreStore = create((set, get) => ({
       { id: "sound", label: "SFX", type: "list", listId: "sfx_list" },
     ],
   },
+
+  ALLOWED_TYPES: [
+    { id: "text", label: "Short Text" },
+    { id: "textarea", label: "Long Text / Body" },
+    { id: "number", label: "Numeric Value" },
+    { id: "list", label: "Dropdown List" },
+    { id: "flag_group", label: "Game Logic Flags" },
+    { id: "sequence", label: "Dialogue Sequence" },
+  ],
 
   // --- 2. PREDEFINED LISTS ---
   // The "Source of Truth" for your dropdowns
@@ -96,15 +114,23 @@ export const useLoreStore = create((set, get) => ({
   },
 
   // Update specific data inside a node
+  // updateNodeData: (nodeId, newData) => {
+  //   set({
+  //     nodes: get().nodes.map((node) => {
+  //       if (node.id === nodeId) {
+  //         return { ...node, data: newData };
+  //       }
+  //       return node;
+  //     }),
+  //   });
+  // },
+
   updateNodeData: (nodeId, newData) => {
-    set({
-      nodes: get().nodes.map((node) => {
-        if (node.id === nodeId) {
-          return { ...node, data: newData };
-        }
-        return node;
-      }),
-    });
+    set((state) => ({
+      nodes: state.nodes.map((node) =>
+        node.id === nodeId ? { ...node, data: newData } : node,
+      ),
+    }));
   },
 
   // --- NEW ACTIONS FOR SETTINGS ---
@@ -134,4 +160,8 @@ export const useLoreStore = create((set, get) => ({
       delete newLists[listId];
       return { lists: newLists };
     }),
+
+  editingNodeId: null, // New property
+
+  setEditingNode: (id) => set({ editingNodeId: id }),
 }));
