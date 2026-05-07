@@ -1,11 +1,11 @@
 import ReactFlow, { Background, Controls, MiniMap } from "reactflow";
 import "reactflow/dist/style.css";
 import { useLoreStore } from "../store"; // Import the store
-import DialogueNode from "./DialogueNode";
+import SceneNode from "./SceneNode";
 import Inspector from "./Inspector";
 
 const nodeTypes = {
-  dialogue: DialogueNode,
+  scene: SceneNode,
 };
 
 export default function MainFlow() {

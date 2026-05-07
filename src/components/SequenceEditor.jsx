@@ -103,20 +103,26 @@ export default function SequenceEditor({ nodeId, lines = [] }) {
           <div
             key={index}
             onClick={() => setActiveIndex(index)}
-            className="group relative bg-gray-50 border border-gray-200 rounded-md p-3 cursor-pointer hover:border-blue-400 hover:shadow-sm transition-all"
+            className="group relative bg-gray-50 border border-gray-200 rounded-md p-3 pl-12 cursor-pointer hover:border-blue-400 hover:shadow-sm transition-all min-h-[60px]"
           >
+            {/* LINE NUMBER BADGE - Fixed in a gutter */}
+            <div className="absolute left-0 top-0 bottom-0 w-8 bg-gray-100 border-r flex items-center justify-center text-[10px] font-black text-gray-400 group-hover:bg-blue-100 group-hover:text-blue-500 transition-colors">
+              {String(index + 1).padStart(2, "0")}
+            </div>
+
+            {/* CONTENT - Now pushed right by the pl-12 */}
             <div className="flex justify-between items-start mb-1">
               <span className="text-[10px] font-bold text-blue-600 truncate max-w-[120px]">
                 {line.speaker || "No Speaker"}
               </span>
               <button
                 onClick={(e) => removeLine(e, index)}
-                className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-opacity"
+                className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500"
               >
                 <Trash2 size={12} />
               </button>
             </div>
-            <p className="text-[11px] text-gray-600 line-clamp-2 italic">
+            <p className="text-[11px] text-gray-600 line-clamp-1 italic">
               "{line.text || "..."}"
             </p>
             <ChevronRight

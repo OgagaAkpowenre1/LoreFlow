@@ -9,82 +9,9 @@ import {
   X
 } from "lucide-react";
 import { useLoreStore } from "../store";
-import EmptyState from "./EmptyState";
 import SmartInput from "./SmartInput";
 import SequenceEditor from "./SequenceEditor";
 import FlagGroup from "./FlagGroup";
-
-// export default function Inspector({ selectedNode }) {
-//   const { schema, updateNodeData } = useLoreStore();
-
-//   if (!selectedNode) return <EmptyState />; // Render a placeholder
-
-//   return (
-//     <aside className="w-80 border-l bg-white h-screen flex flex-col shadow-2xl">
-//       <header className="p-4 bg-gray-900 text-white flex items-center gap-2">
-//         <Settings2 size={18} className="text-blue-400" />
-//         <h2 className="text-xs font-bold uppercase tracking-widest">
-//           Inspector
-//         </h2>
-//       </header>
-
-//       <div className="p-4 flex-grow overflow-y-auto space-y-6">
-//         {schema.nodeFields.map((field) => {
-//           // If it's a sequence, we render the specialized SequenceEditor
-//           if (field.type === "sequence") {
-//             return (
-//               <div key={field.id} className="pt-4 border-t h-[400px]">
-//                 <SequenceEditor
-//                   nodeId={selectedNode.id}
-//                   lines={selectedNode.data[field.id] || []}
-//                 />
-//               </div>
-//             );
-//           }
-
-//           // Inside schema.nodeFields.map in Inspector.jsx
-
-//           if (field.type === "flag_group") {
-//             return (
-//               <div key={field.id} className="space-y-1 pt-4 border-t">
-//                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
-//                   {field.label}
-//                 </label>
-//                 <FlagGroup
-//                   value={selectedNode.data[field.id] || []}
-//                   onChange={(newFlags) => {
-//                     const newData = {
-//                       ...selectedNode.data,
-//                       [field.id]: newFlags,
-//                     };
-//                     updateNodeData(selectedNode.id, newData);
-//                   }}
-//                 />
-//               </div>
-//             );
-//           }
-
-//           // Otherwise, we use our SmartInput
-//           return (
-//             <div key={field.id} className="space-y-1">
-//               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
-//                 {field.label}
-//               </label>
-//               <SmartInput
-//                 field={field}
-//                 value={selectedNode.data[field.id]}
-//                 onChange={(val) => {
-//                   const newData = { ...selectedNode.data, [field.id]: val };
-//                   updateNodeData(selectedNode.id, newData);
-//                 }}
-//               />
-//             </div>
-//           );
-//         })}
-//       </div>
-//     </aside>
-//   );
-// }
 
 export default function Inspector({ selectedNode }) {
   const { schema, updateNodeData, setEditingNode } = useLoreStore();

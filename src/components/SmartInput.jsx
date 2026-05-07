@@ -18,6 +18,17 @@ export default function SmartInput({ field, value, onChange }) {
     );
   }
 
+  if (field.type === "number") {
+    return (
+      <input
+        type="number"
+        className="w-full p-2 border rounded text-xs focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+        value={value || 0}
+        onChange={(e) => onChange(Number(e.target.value))}
+      />
+    );
+  }
+
   // 2. List / Dropdown with "Add New" Logic
   if (field.type === "list") {
     const options = lists[field.listId] || [];

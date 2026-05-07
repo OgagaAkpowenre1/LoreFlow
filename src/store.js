@@ -2,8 +2,7 @@ import { create } from "zustand";
 import { addEdge, applyNodeChanges, applyEdgeChanges } from "reactflow";
 
 export const ALLOWED_TYPES = [
-  { id: "text", label: "Short Text" },
-  { id: "textarea", label: "Long Text" },
+  { id: "text", label: "Text" },
   { id: "number", label: "Number" },
   { id: "list", label: "Dropdown List" },
   { id: "flag_group", label: "Logic Flags" },
@@ -64,7 +63,7 @@ export const useLoreStore = create((set, get) => ({
   nodes: [
     {
       id: "1",
-      type: "dialogue",
+      type: "scene",
       position: { x: 250, y: 5 },
       data: {
         title: "The Beginning",
@@ -156,9 +155,34 @@ export const useLoreStore = create((set, get) => ({
   // Delete an entire list
   deleteList: (listId) =>
     set((state) => {
+      if (listId === "available_flags") {
+        alert(
+          "System Error: 'available_flags' is a core logic list and cannot be deleted.",
+        );
+        return state;
+      }
       const newLists = { ...state.lists };
       delete newLists[listId];
       return { lists: newLists };
+    }),
+
+  // Remove a specific item from a list
+  removeItemFromList: (listId, index) =>
+    set((state) => ({
+      lists: {
+        ...state.lists,
+        [listId]: state.lists[listId].filter((_, i) => i !== index),
+      },
+    })),
+
+  // Update a specific item in a list
+  updateItemInList: (listId, index, newValue) =>
+    set((state) => {
+      const newList = [...state.lists[listId]];
+      newList[index] = newValue;
+      return {
+        lists: { ...state.lists, [listId]: newList },
+      };
     }),
 
   editingNodeId: null, // New property
