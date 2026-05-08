@@ -341,7 +341,99 @@ Once the "Smart Dropdown" and "Dynamic Field" components are finished, you never
 
 **Shall we start by setting up the Zustand Store to handle these dynamic lists and schemas?** It’s the "engine" that makes everything else work.
 
+This is where the distinction between **Player Choice** (what they click) and **Game Logic** (what the computer remembers) becomes your best friend. In a professional narrative tool, you want the writer to see the "Story" and the "Rules" separately so they don't get a headache.
+
+Here is how those three scenarios look in the engine:
+
+### 1. The Visual Novel: Affection Points
+
+In this case, we use **Scene Nodes** with specific **Actions**.
+
+* **Node A (Question):** "Which of these flowers do you like?"
+* **Choice 1 Handle:** "Red Roses" $\rightarrow$ Points to **Action Node** (or script in the Scene Node) that sets `affection += 5`.
+* **Choice 2 Handle:** "Dead Sunflowers" $\rightarrow$ Points to **Action Node** that sets `affection -= 10`.
+
+
+* **The Result:** Later in the story, a **Logic Node** checks `if (affection > 20)`. If true, you get the "Romance" ending; if false, you get the "Friendzone" ending.
+
+### 2. The RPG: NPC Attitude
+
+This is a direct branch. You don't necessarily need a Logic Node here because the **Choice** itself is the logic.
+
+* **Scene Node (The Meeting):** "What do you want, traveler?"
+* **Choice 1 (Friendly):** "Just passing through, friend." $\rightarrow$ Connects to **Friendly Scene Node**.
+* **Choice 2 (Hostile):** "None of your business, old man." $\rightarrow$ Connects to **Angry Scene Node**.
+
+
+* **Persistence:** Inside the "Angry Scene Node," you would set a flag: `npc_is_pissed = true`. Now the game remembers he is angry for the rest of the story.
+
+---
+
+### 3. The "Double Lock": Choice + Flag Check
+
+This is your most advanced scenario. This is how you handle "Secret" or "Gated" content.
+
+**The Setup:** You found a dog earlier in the game (Flag: `saved_dog = true`). Now you are talking to the dog's owner.
+
+1. **Scene Node (The Conversation):** The owner says, "My dog has been missing for days..."
+2. **Player Choice:** "I actually found your dog!" (The "Right" Choice).
+3. **The Logic Node (The Gatekeeper):** The line from that choice doesn't go to a scene; it goes to a **Logic Node**.
+* **Logic Node Checks:** `if (saved_dog == true)`.
+* **TRUE (Green Line):** Leads to **Success Scene**: "Oh thank you! Here is a reward!"
+* **FALSE (Red Line):** Leads to **Failure/Lie Scene**: "Wait... my dog is right here. Why are you lying to me?"
+
+
+
+---
+
+### Distinguishing Choices vs. Logic
+
+This answers your question about UI clutter. Here is the industry standard for keeping it clean:
+
+* **Choices** are represented by **Multiple Output Handles** on the Scene Node. If there are 4 choices, there are 4 dots at the bottom. Each dot is labeled with the choice text.
+* **Logic** is represented by the **Logic Node (Diamond)**.
+
+**Why separate them?** Because it allows for "Invisible Failures."
+
+If the writer connects a choice directly to a scene, the player *knows* that choice works. But if the writer connects a choice to a **Logic Node**, the player clicks the button, and then the game "thinks" for a split second before deciding which scene to play. This creates a much more immersive "RNG" or "Memory" feel to the game.
+
+### How to distinguish "Previous Choice" vs. "New Choices"
+
+* **Input (Top):** Only **ONE** handle. All paths that lead to this scene go here. It doesn't matter if you got here by being nice or by being mean; once you're in the scene, you're at the Top Handle.
+* **Output (Bottom):** **MANY** handles. Each handle represents a "Decision" or a "Path" exiting the scene.
+
+**Should we build the Diamond Logic Node first to get those True/False branches working, or would you prefer to see the "Multiple Choice Handle" logic for the Scene Node?** (The choice handles will involve making the bottom of your Scene Node grow as the writer adds choices in the Inspector).
+
+
+ // --- 3. REACT FLOW DATA ---
+
+  nodes: [
+
+    {
+
+      id: "1",
+
+      type: "scene",
+
+      position: { x: 250, y: 5 },
+
+      data: {
+
+        title: "The Beginning",
+
+        dialogueLines: [], // Match the schema ID
+
+        flags: [], // Initialize flags too
+
+      },
+
+    },
+
+  ],
+
+  edges: [], 
+
 
 should we have more types of nodes?
-add and delete new nodes
+
 export data as json or text

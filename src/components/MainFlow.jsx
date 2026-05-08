@@ -2,10 +2,13 @@ import ReactFlow, { Background, Controls, MiniMap } from "reactflow";
 import "reactflow/dist/style.css";
 import { useLoreStore } from "../store"; // Import the store
 import SceneNode from "./SceneNode";
+import LogicNode from "./LogicNode";
 import Inspector from "./Inspector";
+import { MessageSquare, GitBranch } from "lucide-react";
 
 const nodeTypes = {
   scene: SceneNode,
+  logic: LogicNode
 };
 
 export default function MainFlow() {
@@ -19,6 +22,7 @@ export default function MainFlow() {
     updateNodeData,
     editingNodeId, // Pull this
     setEditingNode,
+    addNode
   } = useLoreStore();
 
   // Find the selected node for the inspector
@@ -26,6 +30,23 @@ export default function MainFlow() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden">
+
+      {/* CREATION TOOLBAR */}
+      <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[100] flex gap-2 bg-white/80 backdrop-blur-md p-2 rounded-2xl border border-white shadow-2xl">
+        <button
+          onClick={() => addNode("scene")}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all hover:scale-105"
+        >
+          <MessageSquare size={16} /> New Scene
+        </button>
+        <button
+          onClick={() => addNode("logic")}
+          className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-xl text-xs font-bold hover:bg-orange-600 transition-all hover:scale-105"
+        >
+          <GitBranch size={16} /> New Logic
+        </button>
+      </div>
+
       <div className="flex-grow h-full relative">
         <ReactFlow
           nodes={nodes}

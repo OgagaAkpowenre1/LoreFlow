@@ -11,10 +11,15 @@ import {
 import { useLoreStore } from "../store";
 import SmartInput from "./SmartInput";
 import SequenceEditor from "./SequenceEditor";
+import ChoiceEditor from "./ChoiceEditor";
 import FlagGroup from "./FlagGroup";
 
 export default function Inspector({ selectedNode }) {
-  const { schema, updateNodeData, setEditingNode } = useLoreStore();
+  const { schema, updateNodeData, setEditingNode, deleteNode } = useLoreStore();
+
+  // Determine which fields to show based on node type
+  const fieldsToShow =
+    selectedNode?.type === "logic" ? schema.logicFields : schema.nodeFields;
 
   return (
     <aside
@@ -40,8 +45,27 @@ export default function Inspector({ selectedNode }) {
       {/* Only render form content if a node is actually selected to avoid errors */}
       {selectedNode && (
         <div className="p-4 flex-grow overflow-y-auto space-y-6">
-          {schema.nodeFields.map((field) => {
+          {fieldsToShow.map((field) => {
             // ... your existing field mapping logic (sequence, flag_group, smartInput) ...
+            // 3. Handle Branching Choices (The fix for [object Object])
+            if (field.type === "choice_list") {
+              return (
+                <div key={field.id} className="space-y-1 pt-4 border-t">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
+                    {field.label}
+                  </label>
+                  <ChoiceEditor
+                    value={selectedNode.data[field.id] || []}
+                    onChange={(newChoices) => {
+                      updateNodeData(selectedNode.id, {
+                        ...selectedNode.data,
+                        [field.id]: newChoices,
+                      });
+                    }}
+                  />
+                </div>
+              );
+            }
 
             if (field.type === "sequence") {
               return (
@@ -73,6 +97,7 @@ export default function Inspector({ selectedNode }) {
                 </div>
               );
             }
+
             return (
               <div key={field.id} className="space-y-1">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
@@ -91,6 +116,24 @@ export default function Inspector({ selectedNode }) {
           })}
         </div>
       )}
+
+      {/* DANGER ZONE / DELETE BUTTON */}
+      <div className="p-4 bg-red-50 border-t border-red-100 mt-auto">
+        <button
+          onClick={() => {
+            if (
+              confirm(
+                "Are you sure you want to delete this node and all its connections?",
+              )
+            ) {
+              deleteNode(selectedNode.id);
+            }
+          }}
+          className="w-full flex items-center justify-center gap-2 py-3 bg-white text-red-600 border border-red-200 rounded-xl text-xs font-bold hover:bg-red-600 hover:text-white transition-all shadow-sm"
+        >
+          <Trash2 size={16} /> Delete Node
+        </button>
+      </div>
     </aside>
   );
 }

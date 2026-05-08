@@ -7,6 +7,7 @@ export const ALLOWED_TYPES = [
   { id: "list", label: "Dropdown List" },
   { id: "flag_group", label: "Logic Flags" },
   { id: "sequence", label: "Dialogue Sequence" },
+  { id: "choice_list", label: "Player Choices" },
 ];
 
 export const useLoreStore = create((set, get) => ({
@@ -24,6 +25,7 @@ export const useLoreStore = create((set, get) => ({
       { id: "flags", label: "Scene Flags", type: "flag_group" }, // New Type
       { id: "music", label: "BGM Track", type: "list", listId: "music_tracks" },
       { id: "dialogueLines", label: "Dialogue Sequence", type: "sequence" }, // Nested Sequence
+      { id: "choices", label: "Branching Choices", type: "choice_list" },
     ],
 
     sequenceFields: [
@@ -37,16 +39,24 @@ export const useLoreStore = create((set, get) => ({
       },
       { id: "sound", label: "SFX", type: "list", listId: "sfx_list" },
     ],
-  },
 
-  ALLOWED_TYPES: [
-    { id: "text", label: "Short Text" },
-    { id: "textarea", label: "Long Text / Body" },
-    { id: "number", label: "Numeric Value" },
-    { id: "list", label: "Dropdown List" },
-    { id: "flag_group", label: "Game Logic Flags" },
-    { id: "sequence", label: "Dialogue Sequence" },
-  ],
+    // Logic-Specific Fields
+    logicFields: [
+      {
+        id: "check_flag",
+        label: "Target Flag",
+        type: "list",
+        listId: "available_flags",
+      },
+      {
+        id: "operator",
+        label: "Comparison",
+        type: "list",
+        listId: "operators",
+      },
+      { id: "value", label: "Value to Check", type: "text" },
+    ],
+  },
 
   // --- 2. PREDEFINED LISTS ---
   // The "Source of Truth" for your dropdowns
@@ -57,22 +67,126 @@ export const useLoreStore = create((set, get) => ({
     expressions: ["Neutral", "Happy", "Angry", "Surprised"],
     sfx_list: ["Door_Creek", "Sword_Clash", "Gold_Coins"],
     available_flags: ["game_started", "has_key", "met_rival"],
+    operators: ["==", "!=", ">", "<", ">=", "<="],
   },
 
-  // --- 3. REACT FLOW DATA ---
+  // --- 3. REACT FLOW DATA (TEST CASE) ---
   nodes: [
     {
       id: "1",
-      type: "scene",
-      position: { x: 250, y: 5 },
+      type: "scene", // Your Scene Node
+      position: { x: 200, y: 50 },
       data: {
-        title: "The Beginning",
-        dialogueLines: [], // Match the schema ID
-        flags: [], // Initialize flags too
+        title: "The Bridge Guard",
+        dialogueLines: [
+          {
+            speaker: "Guard",
+            text: "Halt! Show me your royal pass or turn back.",
+          },
+        ],
+        choices: [
+          { id: "choice_show_pass", text: "Show Pass" },
+          { id: "choice_bribe", text: "Offer 50 Gold" },
+        ],
+        flags: [],
+      },
+    },
+    {
+      id: "2",
+      type: "logic", // Your Logic Node (Diamond)
+      position: { x: 100, y: 250 },
+      data: {
+        check_flag: "has_royal_pass",
+        operator: "==",
+        value: "true",
+      },
+    },
+    {
+      id: "3",
+      type: "scene",
+      position: { x: -100, y: 450 },
+      data: {
+        title: "Entry Granted",
+        dialogueLines: [
+          { speaker: "Guard", text: "Everything is in order. Pass through." },
+        ],
+        choices: [],
+        flags: [],
+      },
+    },
+    {
+      id: "4",
+      type: "scene",
+      position: { x: 300, y: 450 },
+      data: {
+        title: "Caught in a Lie",
+        dialogueLines: [
+          { speaker: "Guard", text: "This is a forgery! Guards, seize them!" },
+        ],
+        choices: [],
+        flags: [],
+      },
+    },
+    {
+      id: "5",
+      type: "scene",
+      position: { x: 500, y: 250 },
+      data: {
+        title: "Bribe Attempt",
+        dialogueLines: [
+          {
+            speaker: "Guard",
+            text: "I'm a man of honor, but... for 50 gold, I didn't see anything.",
+          },
+        ],
+        choices: [],
+        flags: [{ key: "gold_amount", value: -50 }],
       },
     },
   ],
-  edges: [],
+
+  edges: [
+    // Scene 1 Choice -> Logic Node
+    {
+      id: "e1-2",
+      source: "1",
+      target: "2",
+      sourceHandle: "choice_show_pass",
+      label: "Show Pass",
+      animated: true,
+      style: { stroke: "#3b82f6", strokeWidth: 2 },
+    },
+    // Scene 1 Choice -> Scene 5 (Direct Bribe)
+    {
+      id: "e1-5",
+      source: "1",
+      target: "5",
+      sourceHandle: "choice_bribe",
+      label: "Offer 50 Gold",
+      animated: true,
+      style: { stroke: "#3b82f6", strokeWidth: 2 },
+    },
+    // Logic TRUE Path -> Scene 3
+    {
+      id: "e2-3",
+      source: "2",
+      target: "3",
+      sourceHandle: "true",
+      label: "TRUE",
+      animated: true,
+      style: { stroke: "#22c55e", strokeWidth: 2 },
+    },
+    // Logic FALSE Path -> Scene 4
+    {
+      id: "e2-4",
+      source: "2",
+      target: "4",
+      sourceHandle: "false",
+      label: "FALSE",
+      animated: true,
+      style: { stroke: "#ef4444", strokeWidth: 2 },
+    },
+  ],
 
   // --- 4. ACTIONS: SCHEMA & LISTS ---
 
@@ -106,23 +220,48 @@ export const useLoreStore = create((set, get) => ({
       edges: applyEdgeChanges(changes, get().edges),
     });
   },
-  onConnect: (connection) => {
-    set({
-      edges: addEdge(connection, get().edges),
-    });
-  },
 
-  // Update specific data inside a node
-  // updateNodeData: (nodeId, newData) => {
-  //   set({
-  //     nodes: get().nodes.map((node) => {
-  //       if (node.id === nodeId) {
-  //         return { ...node, data: newData };
-  //       }
-  //       return node;
-  //     }),
-  //   });
-  // },
+  onConnect: (connection) => {
+    const { nodes, edges } = get();
+    const sourceNode = nodes.find((n) => n.id === connection.source);
+
+    if (!sourceNode) return;
+
+    let edgeStyle = { strokeWidth: 2, stroke: "#3b82f6" }; // Default Blue
+    let edgeLabel = "";
+    let animated = false;
+
+    // 1. Logic Node Connection
+    if (sourceNode.type === "logic") {
+      animated = true;
+      if (connection.sourceHandle === "true") {
+        edgeStyle.stroke = "#22c55e"; // Green
+        edgeLabel = "TRUE";
+      } else if (connection.sourceHandle === "false") {
+        edgeStyle.stroke = "#ef4444"; // Red
+        edgeLabel = "FALSE";
+      }
+    }
+    // 2. Scene Node Connection
+    else if (sourceNode.type === "scene" && sourceNode.data.choices) {
+      const choice = sourceNode.data.choices.find(
+        (c) => c.id === connection.sourceHandle,
+      );
+      if (choice) edgeLabel = choice.text;
+    }
+
+    const newEdge = {
+      ...connection,
+      label: edgeLabel,
+      animated: animated,
+      type: "smoothstep",
+      style: edgeStyle,
+      labelStyle: { fill: edgeStyle.stroke, fontWeight: 800, fontSize: 10 },
+      labelBgStyle: { fill: "#fff", fillOpacity: 0.9 },
+    };
+
+    set({ edges: addEdge(newEdge, edges) });
+  },
 
   updateNodeData: (nodeId, newData) => {
     set((state) => ({
@@ -188,4 +327,48 @@ export const useLoreStore = create((set, get) => ({
   editingNodeId: null, // New property
 
   setEditingNode: (id) => set({ editingNodeId: id }),
+
+  // --- NODE MANAGEMENT ACTIONS ---
+
+  addNode: (type) => {
+    const id = crypto.randomUUID();
+    const newNode = {
+      id,
+      type,
+      position: { x: Math.random() * 400, y: Math.random() * 400 },
+      data:
+        type === "scene"
+          ? {
+              title: "New Scene",
+              dialogueLines: [],
+              choices: [],
+              flags: [],
+            }
+          : {
+              check_flag: "",
+              operator: "==",
+              value: "true",
+            },
+    };
+
+    set((state) => ({
+      nodes: [...state.nodes, newNode],
+      // Optional: Auto-select and start editing the new node
+      editingNodeId: id,
+    }));
+  },
+
+  deleteNode: (nodeId) => {
+    set((state) => ({
+      // Remove the node
+      nodes: state.nodes.filter((n) => n.id !== nodeId),
+      // Clean up any "ghost" edges connected to that node
+      edges: state.edges.filter(
+        (e) => e.source !== nodeId && e.target !== nodeId,
+      ),
+      // Deselect if we were editing it
+      editingNodeId:
+        state.editingNodeId === nodeId ? null : state.editingNodeId,
+    }));
+  },
 }));
