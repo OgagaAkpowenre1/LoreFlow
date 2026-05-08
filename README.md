@@ -437,3 +437,6 @@ If the writer connects a choice directly to a scene, the player *knows* that cho
 should we have more types of nodes?
 
 export data as json or text
+if user connects choiceless node, then adds choice, make that connection the first choice
+logic node needs stricter checks (if it's a flag only allow, true or false checks, == != if it's a numeric value allow all types of checks)
+allow for point checking and point type of values
