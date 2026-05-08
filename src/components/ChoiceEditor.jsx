@@ -3,7 +3,12 @@ import { Plus, Trash2 } from "lucide-react";
 
 export default function ChoiceEditor({ value = [], onChange }) {
   const addChoice = () => {
-    onChange([...value, { id: crypto.randomUUID(), text: "New Choice" }]);
+    // Ensure we use a clean string for the ID
+    const newChoice = {
+      id: `choice-${crypto.randomUUID()}`,
+      text: "New Choice",
+    };
+    onChange([...value, newChoice]);
   };
 
   const updateChoice = (index, text) => {

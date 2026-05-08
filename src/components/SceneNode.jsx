@@ -1,9 +1,16 @@
-import { Handle, Position } from "reactflow";
+import { Handle, Position, useUpdateNodeInternals } from "reactflow";
+import { useEffect } from "react"; // Added useEffect
 import { MessageSquare, Flag } from "lucide-react";
 
-export default function SceneNode({ data, selected }) {
+export default function SceneNode({ id, data, selected }) {
+  const updateNodeInternals = useUpdateNodeInternals();
   const firstLine = data.dialogueLines?.[0] || {};
   const choices = data.choices || [];
+
+  // Trigger a re-calculation whenever the number of choices changes
+  useEffect(() => {
+    updateNodeInternals(id);
+  }, [id, choices.length, updateNodeInternals]);
 
   return (
     <div
@@ -72,18 +79,19 @@ export default function SceneNode({ data, selected }) {
               position={Position.Bottom}
               id={choice.id}
               style={{
-                left: `${(index + 1) * (100 / (choices.length + 1))}%`,
-                background: "#2563eb", // Blue-600
+                // Calculate position: (1, 2, 3...) / (Total + 1)
+                left: `${((index + 1) / (choices.length + 1)) * 100}%`,
+                background: "#2563eb",
               }}
               className="w-3 h-3 border-2 border-white hover:scale-125 transition-transform"
             />
           ))
         ) : (
-          /* Default handle for linear progression */
           <Handle
             type="source"
             position={Position.Bottom}
-            style={{ background: "#9ca3af" }} // Gray-400
+            id="default-output" // Added an ID for consistency
+            style={{ background: "#9ca3af" }}
             className="w-3 h-3 border-2 border-white hover:scale-125 transition-transform"
           />
         )}
