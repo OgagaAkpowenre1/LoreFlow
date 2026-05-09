@@ -241,157 +241,143 @@ function SchemaTab() {
 }
 
 // function ListsTab() {
-//   const { lists, createNewList, deleteList, addToList, updateItemInList, removeItemFromList } = useLoreStore();
+//   const {
+//     lists,
+//     createNewList,
+//     deleteList,
+//     addToList,
+//     updateItemInList,
+//     removeItemFromList,
+//   } = useLoreStore();
 //   const [newListId, setNewListId] = useState("");
-//   const [itemInputs, setItemInputs] = useState({}); // Track input per list
+//   const [itemInputs, setItemInputs] = useState({});
+//   const [editStates, setEditStates] = useState({}); // { listId: index }
 
-//   const handleCreate = () => {
-//     if (!newListId) return;
-//     createNewList(newListId);
-//     setNewListId("");
-//   };
-
-//   const handleAddItem = (listId) => {
+//   const handleAction = (listId) => {
 //     const val = itemInputs[listId];
 //     if (!val) return;
-//     addToList(listId, val);
+
+//     const editingIndex = editStates[listId];
+
+//     if (editingIndex !== undefined) {
+//       updateItemInList(listId, editingIndex, val);
+//       setEditStates((prev) => {
+//         const next = { ...prev };
+//         delete next[listId];
+//         return next;
+//       });
+//     } else {
+//       addToList(listId, val);
+//     }
+
 //     setItemInputs((prev) => ({ ...prev, [listId]: "" }));
 //   };
 
+//   const startEdit = (listId, index, value) => {
+//     setEditStates((prev) => ({ ...prev, [listId]: index }));
+//     setItemInputs((prev) => ({ ...prev, [listId]: value }));
+//   };
+
 //   return (
-//     <div className="space-y-8">
-//       <div className="flex gap-3 bg-gray-50 p-4 rounded-2xl border border-dashed border-gray-300">
-//         <input
-//           placeholder="New List ID (e.g. sound_effects)"
-//           className="flex-grow p-3 text-sm rounded-xl border border-gray-200 bg-white outline-none focus:ring-2 focus:ring-green-500"
-//           value={newListId}
-//           onChange={(e) => setNewListId(e.target.value)}
-//         />
-//         <button
-//           onClick={handleCreate}
-//           className="bg-green-600 hover:bg-green-700 text-white px-6 rounded-xl text-sm font-bold flex items-center gap-2 transition-all"
+//     <div className="grid grid-cols-2 gap-6">
+//       {Object.entries(lists).map(([id, items]) => (
+//         <div
+//           key={id}
+//           className="border border-gray-200 rounded-2xl p-5 bg-white shadow-sm flex flex-col h-[320px]"
 //         >
-//           <Plus size={18} /> Create List
-//         </button>
-//       </div>
+//           <div className="flex justify-between items-center mb-4">
+//             <h4 className="text-xs font-black text-blue-600 uppercase tracking-widest">
+//               {id}
+//             </h4>
+//             {id !== "available_flags" && (
+//               <button
+//                 onClick={() => deleteList(id)}
+//                 className="text-gray-300 hover:text-red-500"
+//               >
+//                 <Trash2 size={14} />
+//               </button>
+//             )}
+//           </div>
 
-//       <div className="grid grid-cols-2 gap-6">
-//         {Object.entries(lists).map(([id, items]) => (
-//           <div
-//             key={id}
-//             className="border border-gray-200 rounded-2xl p-5 bg-white shadow-sm flex flex-col h-[280px]"
-//           >
-//             <div className="flex justify-between items-center mb-4">
-//               <h4 className="text-xs font-black text-blue-600 uppercase tracking-widest">
-//                 {id}
-//               </h4>
-//               {/* Protected Delete Icon */}
-//               {id !== "available_flags" && (
-//                 <button
-//                   onClick={() => deleteList(id)}
-//                   className="text-gray-300 hover:text-red-500"
-//                 >
-//                   <Trash2 size={14} />
-//                 </button>
-//               )}
-//             </div>
-
-//             {/* Scrollable Items Area */}
-//             <div className="flex-grow overflow-y-auto mb-4 flex flex-wrap gap-2 align-start content-start">
-//               {items.map((item, i) => (
+//           <div className="flex-grow overflow-y-auto mb-4 flex flex-wrap gap-2 content-start">
+//             {items.map((item, i) => (
+//               <div key={i} className="group relative">
 //                 <span
-//                   key={i}
-//                   className="text-[10px] font-bold bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg border border-gray-200"
+//                   onClick={() => startEdit(id, i, item)}
+//                   className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border cursor-pointer transition-all ${
+//                     editStates[id] === i
+//                       ? "bg-blue-600 text-white border-blue-600"
+//                       : "bg-gray-100 text-gray-700 border-gray-200 hover:border-blue-400"
+//                   }`}
 //                 >
 //                   {item}
 //                 </span>
-//               ))}
-//               {items.length === 0 && (
-//                 <p className="text-[10px] text-gray-400 italic">
-//                   No values yet.
-//                 </p>
-//               )}
-//             </div>
-
-//             <div className="flex-grow overflow-y-auto mb-4 space-y-2 pr-2 custom-scrollbar">
-//               {items.map((item, i) => (
-//                 <div key={i} className="flex items-center gap-2 group">
-//                   <input
-//                     className="flex-grow text-[10px] bg-gray-50 border-none p-1 rounded hover:bg-white focus:bg-white focus:ring-1 focus:ring-blue-400 outline-none transition-all"
-//                     value={item}
-//                     onChange={(e) => updateItemInList(id, i, e.target.value)}
-//                   />
-//                   <button
-//                     onClick={() => removeItemFromList(id, i)}
-//                     className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-//                   >
-//                     <X size={12} />
-//                   </button>
-//                 </div>
-//               ))}
-//             </div>
-
-//             {/* DIRECT VALUE ADDITION */}
-//             <div className="flex gap-2 pt-4 border-t">
-//               <input
-//                 className="flex-grow text-xs p-2 border rounded-lg bg-gray-50 focus:bg-white outline-none"
-//                 placeholder="Add value..."
-//                 value={itemInputs[id] || ""}
-//                 onChange={(e) =>
-//                   setItemInputs({ ...itemInputs, [id]: e.target.value })
-//                 }
-//                 onKeyDown={(e) => e.key === "Enter" && handleAddItem(id)}
-//               />
-//               <button
-//                 onClick={() => handleAddItem(id)}
-//                 className="bg-blue-100 text-blue-600 p-2 rounded-lg hover:bg-blue-600 hover:text-white transition-colors"
-//               >
-//                 <Plus size={16} />
-//               </button>
-//             </div>
+//                 <button
+//                   onClick={(e) => {
+//                     e.stopPropagation();
+//                     removeItemFromList(id, i);
+//                   }}
+//                   className="absolute -top-0 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+//                 >
+//                   <X size={8} />
+//                 </button>
+//               </div>
+//             ))}
 //           </div>
-//         ))}
-//       </div>
+
+//           <div className="flex gap-2 pt-4 border-t">
+//             <input
+//               className={`flex-grow text-xs p-2 border rounded-lg outline-none transition-all ${
+//                 editStates[id] !== undefined
+//                   ? "bg-blue-50 border-blue-300"
+//                   : "bg-gray-50 focus:bg-white"
+//               }`}
+//               placeholder={
+//                 editStates[id] !== undefined ? "Edit value..." : "Add value..."
+//               }
+//               value={itemInputs[id] || ""}
+//               onChange={(e) =>
+//                 setItemInputs({ ...itemInputs, [id]: e.target.value })
+//               }
+//             />
+//             <button
+//               onClick={() => handleAction(id)}
+//               className={`p-2 rounded-lg transition-all ${
+//                 editStates[id] !== undefined
+//                   ? "bg-green-600 text-white"
+//                   : "bg-blue-600 text-white"
+//               }`}
+//             >
+//               {editStates[id] !== undefined ? (
+//                 <Check size={16} />
+//               ) : (
+//                 <Plus size={16} />
+//               )}
+//             </button>
+//           </div>
+//         </div>
+//       ))}
 //     </div>
 //   );
 // }
 
 function ListsTab() {
-  const {
-    lists,
-    createNewList,
-    deleteList,
-    addToList,
-    updateItemInList,
-    removeItemFromList,
-  } = useLoreStore();
-  const [newListId, setNewListId] = useState("");
+  const { lists, addToList, removeItemFromList } = useLoreStore();
   const [itemInputs, setItemInputs] = useState({});
-  const [editStates, setEditStates] = useState({}); // { listId: index }
+  const [selectedType, setSelectedType] = useState("boolean"); // Default type
 
   const handleAction = (listId) => {
     const val = itemInputs[listId];
     if (!val) return;
 
-    const editingIndex = editStates[listId];
-
-    if (editingIndex !== undefined) {
-      updateItemInList(listId, editingIndex, val);
-      setEditStates((prev) => {
-        const next = { ...prev };
-        delete next[listId];
-        return next;
-      });
+    // LOGIC CHECK: If we are adding to 'variables', add an object. Otherwise, a string.
+    if (listId === "variables") {
+      addToList(listId, { name: val, type: selectedType });
     } else {
       addToList(listId, val);
     }
 
-    setItemInputs((prev) => ({ ...prev, [listId]: "" }));
-  };
-
-  const startEdit = (listId, index, value) => {
-    setEditStates((prev) => ({ ...prev, [listId]: index }));
-    setItemInputs((prev) => ({ ...prev, [listId]: value }));
+    setItemInputs({ ...itemInputs, [listId]: "" });
   };
 
   return (
@@ -399,41 +385,24 @@ function ListsTab() {
       {Object.entries(lists).map(([id, items]) => (
         <div
           key={id}
-          className="border border-gray-200 rounded-2xl p-5 bg-white shadow-sm flex flex-col h-[320px]"
+          className="border border-gray-200 rounded-2xl p-5 bg-white shadow-sm flex flex-col h-[350px]"
         >
-          <div className="flex justify-between items-center mb-4">
-            <h4 className="text-xs font-black text-blue-600 uppercase tracking-widest">
-              {id}
-            </h4>
-            {id !== "available_flags" && (
-              <button
-                onClick={() => deleteList(id)}
-                className="text-gray-300 hover:text-red-500"
-              >
-                <Trash2 size={14} />
-              </button>
-            )}
-          </div>
+          <h4 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-4">
+            {id}
+          </h4>
 
           <div className="flex-grow overflow-y-auto mb-4 flex flex-wrap gap-2 content-start">
             {items.map((item, i) => (
               <div key={i} className="group relative">
-                <span
-                  onClick={() => startEdit(id, i, item)}
-                  className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border cursor-pointer transition-all ${
-                    editStates[id] === i
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-gray-100 text-gray-700 border-gray-200 hover:border-blue-400"
-                  }`}
-                >
-                  {item}
+                <span className="text-[10px] font-bold px-3 py-1.5 rounded-lg border bg-gray-100 text-gray-700">
+                  {/* If it's a variable object, show "name (type)". If string, show item */}
+                  {typeof item === "object"
+                    ? `${item.name} (${item.type})`
+                    : item}
                 </span>
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeItemFromList(id, i);
-                  }}
-                  className="absolute -top-0 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                  onClick={() => removeItemFromList(id, i)}
+                  className="absolute cursor-pointer -top-0 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
                 >
                   <X size={8} />
                 </button>
@@ -441,35 +410,42 @@ function ListsTab() {
             ))}
           </div>
 
-          <div className="flex gap-2 pt-4 border-t">
-            <input
-              className={`flex-grow text-xs p-2 border rounded-lg outline-none transition-all ${
-                editStates[id] !== undefined
-                  ? "bg-blue-50 border-blue-300"
-                  : "bg-gray-50 focus:bg-white"
-              }`}
-              placeholder={
-                editStates[id] !== undefined ? "Edit value..." : "Add value..."
-              }
-              value={itemInputs[id] || ""}
-              onChange={(e) =>
-                setItemInputs({ ...itemInputs, [id]: e.target.value })
-              }
-            />
-            <button
-              onClick={() => handleAction(id)}
-              className={`p-2 rounded-lg transition-all ${
-                editStates[id] !== undefined
-                  ? "bg-green-600 text-white"
-                  : "bg-blue-600 text-white"
-              }`}
-            >
-              {editStates[id] !== undefined ? (
-                <Check size={16} />
-              ) : (
+          <div className="space-y-2 pt-4 border-t">
+            {/* If it's the variables list, show the Type Selector */}
+            {id === "variables" && (
+              <div className="flex gap-2 mb-2">
+                {["boolean", "number"].map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setSelectedType(t)}
+                    className={`flex-grow py-1 rounded text-[9px] font-black uppercase transition-all ${
+                      selectedType === t
+                        ? "bg-orange-500 text-white"
+                        : "bg-gray-100 text-gray-400"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <input
+                className="flex-grow text-xs p-2 border rounded-lg outline-none bg-gray-50 focus:bg-white"
+                placeholder="Add new item..."
+                value={itemInputs[id] || ""}
+                onChange={(e) =>
+                  setItemInputs({ ...itemInputs, [id]: e.target.value })
+                }
+              />
+              <button
+                onClick={() => handleAction(id)}
+                className="p-2 rounded-lg bg-blue-600 text-white"
+              >
                 <Plus size={16} />
-              )}
-            </button>
+              </button>
+            </div>
           </div>
         </div>
       ))}

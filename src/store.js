@@ -79,7 +79,11 @@ export const useLoreStore = create(
         music_tracks: ["Peaceful_Town", "Battle_Theme", "Suspense_Ambient"],
         expressions: ["Neutral", "Happy", "Angry", "Surprised"],
         sfx_list: ["Door_Creek", "Sword_Clash", "Gold_Coins"],
-        available_flags: ["game_started", "has_key", "met_rival"],
+        variables: [
+          { name: "game_started", type: "boolean" },
+          { name: "gold_amount", type: "number" },
+          { name: "has_key", type: "boolean" },
+        ],
         operators: ["==", "!=", ">", "<", ">=", "<="],
       },
 
@@ -392,7 +396,7 @@ export const useLoreStore = create(
       },
 
       exportGameData: () => {
-        const { nodes, edges } = get();
+        const { nodes, edges, lists, schema } = get();
 
         const processNode = (node) => {
           // Create a flat map of handleId -> targetId

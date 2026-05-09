@@ -438,9 +438,72 @@ State Initialization,"Loop through lists.available_flags and create a Map<String
 Asset Loading,"If lists.locations contains ""Forest,"" the engine knows it needs to preload forest_bg.png."
 Error Checking,"If a node references an ID not found in the registry, the engine can throw a warning before the game even crashes."
 
+This is a solid roadmap. Moving from a "functional" prototype to a "professional" tool is all about these small friction-reducing details.
+
+Here is the compiled **QoL & Logic Hardening Roadmap**, organized by how they impact the user experience.
+
+---
+
+## 1. Project & File Management
+
+These features turn the "web page" into a "studio."
+
+* **Project Naming:** Add a "Project Title" field in the header. Use this title as the default filename when exporting (e.g., `Shadows_Over_Lagos_v1.lore`).
+* **Auto-Save Indicators:** A small "Saved" checkmark or "Unsaved Changes" dot that appears in the corner when LocalStorage syncs.
+* **Project Thumbnails:** When loading projects, show a tiny preview of the map or the date it was last edited.
+* **Version History:** Allow users to save "Snapshots" locally so they can revert if they mess up a complex logic branch.
+
+## 2. Smart Workflow Logic
+
+Features that "guess" the writer's intent to save clicks.
+
+* **Handle Inheritance:** As you suggested, if a "linear" node (no choices) is connected to a target, and the user then adds their first choice, the existing edge should **automatically re-bind** its source handle to that new choice's ID.
+* **Node Duplication (Ctrl+D):** Clone a selected node with all its dialogue and internal flags—essential for repetitive encounter structures.
+* **Snap-to-Grid:** Keeps the map looking clean and professional automatically.
+* **Multi-Select & Bulk Move:** Drag a box to select ten nodes and move them as a group to make room for a new branch.
+
+## 3. Strict Logic & Type-Safety
+
+This prevents "Logic Bugs" that break games before they are even exported.
+
+* **Dynamic Logic Blueprints:**
+* If the selected `check_flag` is a **Boolean/Flag**: The `operator` dropdown restricted to `==` and `!=`, and the `value` forced to a toggle (True/False).
+* If the selected `check_flag` is **Numeric (Points)**: The `operator` dropdown unlocks the full range: 
+$$==, \neq, >, <, \geq, \leq$$
+
+
+.
+
+
+* **Point System Integration:**
+* Add a `global_points` list in the registry.
+* In Scene Nodes, allow "Action" fields that perform math (e.g., `affection_points += 5` or `gold_amount -= 50`).
+
+
+* **Variable Validation:** Highlight a Logic Node in **Red** if it’s checking a flag that was deleted from the Global Lists.
+
+## 4. Visual Organization (The "Zen" Features)
+
+Writing is hard; the UI shouldn't make it harder.
+
+* **Minimap:** A small corner window to navigate massive story graphs.
+* **Node Color-Coding:** Allow users to right-click a node and change its color (e.g., Green for "Start," Purple for "Secret Ending," Red for "Death").
+* **Comment/Post-it Nodes:** Sticky notes that float on the canvas but aren't part of the game export—used for writer's notes like "TO-DO: Rewrite this dialogue later."
+* **Search & Jump:** A `Ctrl+F` bar that searches node titles or speaker names and centers the camera on the result.
+
+---
+
+### Implementation Priority: The "Low Hanging Fruit"
+
+If I were your lead developer, I’d prioritize **Logic Node Hardening** and **Handle Inheritance** first. Those aren't just QoL—they prevent data corruption.
+
+**Which of these feels like the most urgent "pain point" to solve first?** (I'd recommend starting with the **Logic Node Hardening**, as it ensures the data your users are saving is actually valid for their game engines).
+
 should we have more types of nodes?
 
 export data as json or text
 if user connects choiceless node, then adds choice, make that connection the first choice
 logic node needs stricter checks (if it's a flag only allow, true or false checks, == != if it's a numeric value allow all types of checks)
 allow for point checking and point type of values
+change navbar
+delete project throws alert, make component
