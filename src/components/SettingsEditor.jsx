@@ -183,7 +183,7 @@ function SchemaTab() {
             {/* Logic: If they pick flag_group, we auto-assign available_flags in the background */}
             {newField.type === "flag_group" && (
               <div className="flex-grow p-2 text-[10px] text-orange-600 bg-orange-50 rounded border border-orange-200">
-                Auto-linked to: <strong>available_flags</strong>
+                Auto-linked to: <strong>variables list</strong>
               </div>
             )}
             <button

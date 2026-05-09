@@ -87,6 +87,8 @@ export const useLoreStore = create(
         operators: ["==", "!=", ">", "<", ">=", "<="],
       },
 
+      projectName: "Untitled Lore",
+
       // --- 3. REACT FLOW DATA (TEST CASE) ---
       nodes: [
         {
@@ -286,12 +288,85 @@ export const useLoreStore = create(
         set({ edges: addEdge(newEdge, edges) });
       },
 
+      // updateNodeData: (nodeId, newData) => {
+      //   set((state) => ({
+      //     nodes: state.nodes.map((node) =>
+      //       node.id === nodeId ? { ...node, data: newData } : node,
+      //     ),
+      //   }));
+      // },
+
       updateNodeData: (nodeId, newData) => {
-        set((state) => ({
-          nodes: state.nodes.map((node) =>
-            node.id === nodeId ? { ...node, data: newData } : node,
-          ),
-        }));
+        set((state) => {
+          const oldNode = state.nodes.find((n) => n.id === nodeId);
+          let newEdges = [...state.edges]; // Start with a copy of existing edges
+
+          if (oldNode && oldNode.type === "scene") {
+            const oldChoices = oldNode.data.choices || [];
+            const newChoices = newData.choices || [];
+
+            // --- CASE A: Handle Inheritance (0 to 1+ choices) ---
+            if (oldChoices.length === 0 && newChoices.length > 0) {
+              const firstChoice = newChoices[0];
+              newEdges = newEdges.map((edge) => {
+                if (
+                  edge.source === nodeId &&
+                  (!edge.sourceHandle || edge.sourceHandle === "default-output")
+                ) {
+                  return {
+                    ...edge,
+                    sourceHandle: firstChoice.id,
+                    label: firstChoice.text,
+                    style: { ...edge.style, stroke: "#3b82f6" },
+                  };
+                }
+                return edge;
+              });
+            }
+
+            // --- CASE B: Reverting to Linear (Choices to 0) ---
+            else if (oldChoices.length > 0 && newChoices.length === 0) {
+              newEdges = newEdges.map((edge) => {
+                if (edge.source === nodeId) {
+                  return {
+                    ...edge,
+                    sourceHandle: "default-output",
+                    label: "",
+                    style: { ...edge.style, stroke: "#9ca3af" },
+                  };
+                }
+                return edge;
+              });
+            }
+
+            // --- CASE C: LIVE LABEL SYNC (Updating existing choice text) ---
+            // This is what was missing!
+            else {
+              newEdges = newEdges.map((edge) => {
+                if (edge.source === nodeId) {
+                  // Find the choice object that matches this line's handle
+                  const matchingChoice = newChoices.find(
+                    (c) => c.id === edge.sourceHandle,
+                  );
+                  if (matchingChoice && edge.label !== matchingChoice.text) {
+                    return {
+                      ...edge,
+                      label: matchingChoice.text,
+                    };
+                  }
+                }
+                return edge;
+              });
+            }
+          }
+
+          return {
+            nodes: state.nodes.map((node) =>
+              node.id === nodeId ? { ...node, data: newData } : node,
+            ),
+            edges: newEdges,
+          };
+        });
       },
 
       // --- NEW ACTIONS FOR SETTINGS ---
@@ -447,7 +522,11 @@ export const useLoreStore = create(
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = `narrative_export_${Date.now()}.json`;
+        const fileName = get()
+          .projectName.replace(/[^a-z0-9]/gi, "_")
+          .toLowerCase();
+        link.download = `${fileName}_project.lore`; // or .json
+        // link.download = `narrative_export_${Date.now()}.json`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -465,7 +544,8 @@ export const useLoreStore = create(
 
       // Inside useLoreStore
       exportProject: () => {
-        const { nodes, edges, lists, schema } = get();
+        const { nodes, edges, lists, schema, projectName } = get();
+        const fileName = projectName.toLowerCase().replace(/\s+/g, "_");
 
         // The Project file includes EVERYTHING (positions, handles, types)
         const projectData = {
@@ -475,6 +555,7 @@ export const useLoreStore = create(
           edges,
           lists,
           schema,
+          projectName
         };
 
         const blob = new Blob([JSON.stringify(projectData, null, 2)], {
@@ -483,7 +564,7 @@ export const useLoreStore = create(
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = `project_${Date.now()}.lore`;
+        link.download = `${fileName}.lore`;
         link.click();
       },
 
@@ -510,6 +591,8 @@ export const useLoreStore = create(
           alert("Error parsing the file. Is it a valid JSON?");
         }
       },
+
+      updateProjectName: (name) => set({ projectName: name }),
     }),
     {
       name: "lore-engine-storage", // Unique key in localStorage

@@ -507,3 +507,5 @@ logic node needs stricter checks (if it's a flag only allow, true or false check
 allow for point checking and point type of values
 change navbar
 delete project throws alert, make component
+allow adding of new lists, with a form that asks for the name of the list and at least 3 items inside it
+allow players to create new variable type lists, so they can compartmentalize their data, as it is they have to store all flags in the same variable list, what if they want all types of points in one place and story flags in another
