@@ -433,6 +433,10 @@ If the writer connects a choice directly to a scene, the player *knows* that cho
 
   edges: [], 
 
+Feature,How the Engine uses the registry
+State Initialization,"Loop through lists.available_flags and create a Map<String, Boolean> where everything starts as false."
+Asset Loading,"If lists.locations contains ""Forest,"" the engine knows it needs to preload forest_bg.png."
+Error Checking,"If a node references an ID not found in the registry, the engine can throw a warning before the game even crashes."
 
 should we have more types of nodes?
 
