@@ -501,11 +501,7 @@ If I were your lead developer, I’d prioritize **Logic Node Hardening** and **H
 
 should we have more types of nodes?
 
-export data as json or text
-if user connects choiceless node, then adds choice, make that connection the first choice
-logic node needs stricter checks (if it's a flag only allow, true or false checks, == != if it's a numeric value allow all types of checks)
 allow for point checking and point type of values
-change navbar
 delete project throws alert, make component
-allow adding of new lists, with a form that asks for the name of the list and at least 3 items inside it
-allow players to create new variable type lists, so they can compartmentalize their data, as it is they have to store all flags in the same variable list, what if they want all types of points in one place and story flags in another
+
+things like color themes feels like it's under node groupings, if we're handling node groupings i want to go all the way, allowing the user to select nodes, put them in a smaller self contained group and so on, maybe a new node type will be added, called collections? also need an intuitive way to select multiple nodes at once, like a choice of all connected nodes connected to this currently selected node, or pick one by one, or something

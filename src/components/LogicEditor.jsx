@@ -2,29 +2,34 @@ import React from "react";
 import { useLoreStore } from "../store";
 
 export default function LogicEditor({ nodeId, data }) {
-  const { lists, updateNodeData } = useLoreStore();
+  const { lists, updateNodeData, listMetadata } = useLoreStore();
   const variables = lists.variables || [];
+  // Find all lists that are of type 'variable'
+  const variableLists = Object.keys(listMetadata).filter(
+    (key) => listMetadata[key] === "variable",
+  );
 
-  // Find the currently selected variable to determine its type
-  const selectedVar = variables.find((v) => v.name === data.check_flag);
+  // This combines everything from 'variables', 'stats', etc., into one array for searching
+  const allVariables = variableLists.flatMap((key) => lists[key] || []);
+
+  // 3. Update the search logic to use the flat array
+  const selectedVar = allVariables.find((v) => v.name === data.check_flag);
   const isNumeric = selectedVar?.type === "number";
 
   const handleUpdate = (key, val) => {
     updateNodeData(nodeId, { ...data, [key]: val });
   };
 
-  // When changing the variable, safely reset operators/values if the type changes
   const onFlagChange = (newFlag) => {
-    const newVar = variables.find((v) => v.name === newFlag);
+    // 4. Also use the flat array here
+    const newVar = allVariables.find((v) => v.name === newFlag);
     const newUpdates = { check_flag: newFlag };
 
     if (newVar?.type === "boolean") {
-      // Force boolean-safe operators and values
       if (!["==", "!="].includes(data.operator)) newUpdates.operator = "==";
       if (data.value !== "true" && data.value !== "false")
         newUpdates.value = "true";
     } else if (newVar?.type === "number") {
-      // Force numeric value
       if (isNaN(data.value)) newUpdates.value = 0;
     }
 
@@ -46,10 +51,19 @@ export default function LogicEditor({ nodeId, data }) {
           <option value="" disabled>
             Select variable...
           </option>
-          {variables.map((v) => (
+          {/* {variables.map((v) => (
             <option key={v.name} value={v.name}>
               {v.name} ({v.type})
             </option>
+          ))} */}
+          {variableLists.map((listKey) => (
+            <optgroup key={listKey} label={listKey.toUpperCase()}>
+              {lists[listKey].map((v) => (
+                <option key={v.name} value={v.name}>
+                  {v.name}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
       </div>

@@ -73,6 +73,16 @@ export const useLoreStore = create(
 
       // --- 2. PREDEFINED LISTS ---
       // The "Source of Truth" for your dropdowns
+      listMetadata: {
+        characters: "string",
+        backgrounds: "string",
+        music_tracks: "string",
+        expressions: "string",
+        sfx_list: "string",
+        variables: "variable", // The base non-deletable list
+        operators: "string",
+      },
+
       lists: {
         characters: ["Narrator", "Protagonist", "Mysterious Stranger"],
         backgrounds: ["Tavern_Night", "Forest_Path", "Castle_Gate"],
@@ -381,26 +391,43 @@ export const useLoreStore = create(
         })),
 
       // Create a brand new empty list (e.g., 'WeaponTypes')
-      createNewList: (listId) =>
-        set((state) => ({
-          lists: {
-            ...state.lists,
-            [listId]: [],
-          },
-        })),
+      // createNewList: (listId) =>
+      //   set((state) => ({
+      //     lists: {
+      //       ...state.lists,
+      //       [listId]: [],
+      //     },
+      //   })),
 
-      // Delete an entire list
+      // // Delete an entire list
+      // deleteList: (listId) =>
+      //   set((state) => {
+      //     if (listId === "available_flags") {
+      //       alert(
+      //         "System Error: 'available_flags' is a core logic list and cannot be deleted.",
+      //       );
+      //       return state;
+      //     }
+      //     const newLists = { ...state.lists };
+      //     delete newLists[listId];
+      //     return { lists: newLists };
+      //   }),
+
+      createNewList: (id, type, initialItems) => {
+        set((state) => ({
+          listMetadata: { ...state.listMetadata, [id]: type },
+          lists: { ...state.lists, [id]: initialItems },
+        }));
+      },
+
       deleteList: (listId) =>
         set((state) => {
-          if (listId === "available_flags") {
-            alert(
-              "System Error: 'available_flags' is a core logic list and cannot be deleted.",
-            );
-            return state;
-          }
+          if (listId === "variables") return state; // Protection
           const newLists = { ...state.lists };
+          const newMeta = { ...state.listMetadata };
           delete newLists[listId];
-          return { lists: newLists };
+          delete newMeta[listId];
+          return { lists: newLists, listMetadata: newMeta };
         }),
 
       // Remove a specific item from a list
@@ -555,7 +582,7 @@ export const useLoreStore = create(
           edges,
           lists,
           schema,
-          projectName
+          projectName,
         };
 
         const blob = new Blob([JSON.stringify(projectData, null, 2)], {

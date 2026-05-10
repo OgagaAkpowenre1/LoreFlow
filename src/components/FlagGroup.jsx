@@ -3,17 +3,23 @@ import { useLoreStore } from "../store";
 import { Plus, Minus, Equal, X } from "lucide-react";
 
 export default function FlagGroup({ value = [], onChange }) {
-  const { lists, addToList } = useLoreStore();
+  const { lists, addToList, listMetadata } = useLoreStore();
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newFlagName, setNewFlagName] = useState("");
 
-  const availableVars = lists.variables || [];
+  // 1. Get the list of IDs for all variable-type containers
+  const variableListIds = Object.keys(listMetadata || {}).filter(
+    (key) => listMetadata[key] === "variable",
+  );
+
+  // 2. Flatten all variables into one array for easy lookup
+  const allAvailableVars = variableListIds.flatMap((key) => lists[key] || []);
 
   const handleAddNewFlag = () => {
     if (newFlagName.trim()) {
       const newVar = { name: newFlagName.trim(), type: "boolean" };
+      // 3. Default new flags created here go into the primary "variables" list
       addToList("variables", newVar);
-      // Default new flags to 'set' operator
       onChange([...value, { key: newVar.name, value: true, op: "=" }]);
       setNewFlagName("");
       setIsAddingNew(false);
@@ -29,9 +35,9 @@ export default function FlagGroup({ value = [], onChange }) {
   return (
     <div className="space-y-2 border p-3 rounded-lg bg-gray-50 border-gray-200">
       {value.map((flag, i) => {
-        const varDef = availableVars.find((v) => v.name === flag.key);
+        // 4. Use the aggregated array to find the type
+        const varDef = allAvailableVars.find((v) => v.name === flag.key);
         const isNumber = varDef?.type === "number";
-        // Default to "=" if no operator exists in older data
         const currentOp = flag.op || "=";
 
         return (
@@ -39,16 +45,20 @@ export default function FlagGroup({ value = [], onChange }) {
             key={i}
             className="flex gap-1 items-center bg-white p-1 rounded border border-gray-100 shadow-sm"
           >
-            {/* 1. Variable Selector */}
+            {/* 5. Update the Selector to use optgroups like the Logic Editor */}
             <select
-              className="text-[10px] p-1 flex-grow bg-transparent outline-none font-bold text-gray-700"
+              className="text-[11px] p-1 flex-grow bg-transparent outline-none font-bold text-gray-700"
               value={flag.key}
               onChange={(e) => updateFlag(i, "key", e.target.value)}
             >
-              {availableVars.map((v) => (
-                <option key={v.name} value={v.name}>
-                  {v.name}
-                </option>
+              {variableListIds.map((listKey) => (
+                <optgroup key={listKey} label={listKey.toUpperCase()}>
+                  {lists[listKey].map((v) => (
+                    <option key={v.name} value={v.name}>
+                      {v.name}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
 
@@ -115,7 +125,7 @@ export default function FlagGroup({ value = [], onChange }) {
             onChange([
               ...value,
               {
-                key: availableVars[0]?.name || "new_flag",
+                key: allAvailableVars[0]?.name || "new_flag",
                 value: true,
                 op: "=",
               },
