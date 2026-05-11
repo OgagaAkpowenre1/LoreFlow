@@ -2,6 +2,16 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { addEdge, applyNodeChanges, applyEdgeChanges } from "reactflow";
 
+const getAbsolutePos = (node, nodes) => {
+  if (!node.parentId) return node.position;
+  const parent = nodes.find((n) => n.id === node.parentId);
+  const parentPos = getAbsolutePos(parent, nodes);
+  return {
+    x: node.position.x + parentPos.x,
+    y: node.position.y + parentPos.y,
+  };
+};
+
 export const ALLOWED_TYPES = [
   { id: "text", label: "Text" },
   { id: "number", label: "Number" },
@@ -461,6 +471,7 @@ export const useLoreStore = create(
           id,
           type,
           position: { x: Math.random() * 400, y: Math.random() * 400 },
+          zIndex: 10, // Ensure standard nodes are always on top
           data:
             type === "scene"
               ? {
@@ -497,23 +508,34 @@ export const useLoreStore = create(
         }));
       },
 
+      // Add this near your other node actions (like addNode, deleteNode)
+      setNodes: (newNodes) => set({ nodes: newNodes }),
+
       exportGameData: () => {
         const { nodes, edges, lists, schema } = get();
 
+        // const processNode = (node) => {
+        //   // Create a flat map of handleId -> targetId
+        //   const nextMap = {};
+        //   edges
+        //     .filter((edge) => edge.source === node.id)
+        //     .forEach((edge) => {
+        //       // If it's a linear node with no specific handle ID, we can use a 'default' key
+        //       const key = edge.sourceHandle || "default";
+        //       nextMap[key] = edge.target;
+        //     });
         const processNode = (node) => {
-          // Create a flat map of handleId -> targetId
           const nextMap = {};
           edges
-            .filter((edge) => edge.source === node.id)
-            .forEach((edge) => {
-              // If it's a linear node with no specific handle ID, we can use a 'default' key
-              const key = edge.sourceHandle || "default";
-              nextMap[key] = edge.target;
+            .filter((e) => e.source === node.id)
+            .forEach((e) => {
+              nextMap[e.sourceHandle || "default"] = e.target;
             });
 
           return {
             id: node.id,
             type: node.type,
+            collectionId: node.parentId || null, // Export the group ownership
             data: node.data,
             next: nextMap, // The clean navigation map
           };
@@ -620,6 +642,187 @@ export const useLoreStore = create(
       },
 
       updateProjectName: (name) => set({ projectName: name }),
+
+      // --- 6. GROUPING & SELECTION ACTIONS ---
+
+      // Helper to find all descendants connected to a node
+      getConnectedDescendants: (nodeId) => {
+        const { nodes, edges } = get();
+        let descendants = [];
+        let queue = [nodeId];
+
+        while (queue.length > 0) {
+          const currentId = queue.shift();
+          const children = edges
+            .filter((e) => e.source === currentId)
+            .map((e) => e.target);
+
+          for (const childId of children) {
+            if (!descendants.includes(childId)) {
+              descendants.push(childId);
+              queue.push(childId);
+            }
+          }
+        }
+        return descendants;
+      },
+
+      // groupSelectedNodes: (color = "#f1f5f9") => {
+      //   const { nodes } = get();
+      //   const selectedNodes = nodes.filter((n) => n.selected);
+      //   if (selectedNodes.length < 1) return;
+
+      //   const title = window.prompt("Collection Name:", "Chapter 1");
+      //   if (!title) return;
+
+      //   const minX = Math.min(...selectedNodes.map((n) => n.position.x));
+      //   const minY = Math.min(...selectedNodes.map((n) => n.position.y));
+      //   const maxX = Math.max(...selectedNodes.map((n) => n.position.x + 260));
+      //   const maxY = Math.max(...selectedNodes.map((n) => n.position.y + 200));
+
+      //   const padding = 60;
+      //   const groupId = crypto.randomUUID();
+
+      //   const groupNode = {
+      //     id: groupId,
+      //     type: "collection",
+      //     position: { x: minX - padding, y: minY - padding },
+      //     style: {
+      //       width: maxX - minX + padding * 2,
+      //       height: maxY - minY + padding * 2,
+      //       backgroundColor: color,
+      //       zIndex: -1, // Keep it behind
+      //     },
+      //     // Add pointers-events: none style if edges are still unclickable
+      //     data: { title },
+      //   };
+
+      //   const updatedNodes = nodes.map((node) => {
+      //     if (node.selected) {
+      //       return {
+      //         ...node,
+      //         parentId: groupId,
+      //         extent: "parent",
+      //         position: {
+      //           x: node.position.x - (minX - padding),
+      //           y: node.position.y - (minY - padding),
+      //         },
+      //         selected: false,
+      //       };
+      //     }
+      //     return node;
+      //   });
+
+      //   // CRITICAL: The Parent MUST be at index 0 to render underneath
+      //   set({ nodes: [groupNode, ...updatedNodes] });
+      // },
+
+      // 1. Remove node from its current group
+      
+      // Helper inside store.js to get absolute position
+
+
+// Inside useLoreStore actions:
+groupSelectedNodes: (baseColor = "#6366f1") => {
+  const { nodes } = get();
+  const selectedNodes = nodes.filter((n) => n.selected && n.type !== 'collection');
+  
+  if (selectedNodes.length < 1) return;
+  const title = window.prompt("Collection Name:", "New Chapter");
+  if (!title) return;
+
+  // FIX: Calculate bounding box using ABSOLUTE coordinates
+  const absolutePositions = selectedNodes.map(n => getAbsolutePos(n, nodes));
+  
+  const minX = Math.min(...absolutePositions.map(p => p.x));
+  const minY = Math.min(...absolutePositions.map(p => p.y));
+  const maxX = Math.max(...absolutePositions.map(p => p.x + 260));
+  const maxY = Math.max(...absolutePositions.map(p => p.y + 150));
+
+  const padding = 60;
+  const groupId = crypto.randomUUID();
+
+  const groupNode = {
+    id: groupId,
+    type: "collection",
+    position: { x: minX - padding, y: minY - padding },
+    zIndex : 0,
+    style: {
+      width: (maxX - minX) + padding * 2,
+      height: (maxY - minY) + padding * 2,
+    },
+    data: { title, color: baseColor },
+  };
+
+  const updatedNodes = nodes.map((node) => {
+    if (node.selected && node.type !== 'collection') {
+      const absPos = getAbsolutePos(node, nodes);
+      return {
+        ...node,
+        parentId: groupId,
+        extent: 'parent',
+        position: {
+          x: absPos.x - (minX - padding),
+          y: absPos.y - (minY - padding),
+        },
+        selected: false,
+      };
+    }
+    return node;
+  });
+
+  set({ nodes: [groupNode, ...updatedNodes] });
+},
+
+// Add to group manually
+moveToCollection: (nodeId, targetGroupId) => {
+  set((state) => {
+    const node = state.nodes.find(n => n.id === nodeId);
+    const targetGroup = state.nodes.find(n => n.id === targetGroupId);
+    if (!node || !targetGroup) return state;
+
+    const absPos = getAbsolutePos(node, state.nodes);
+
+    return {
+      nodes: state.nodes.map(n => {
+        if (n.id === nodeId) {
+          return {
+            ...n,
+            parentId: targetGroupId,
+            extent: 'parent',
+            position: {
+              x: absPos.x - targetGroup.position.x,
+              y: absPos.y - targetGroup.position.y
+            }
+          };
+        }
+        return n;
+      })
+    };
+  });
+},
+      
+      removeFromGroup: (nodeId) => {
+        set((state) => ({
+          nodes: state.nodes.map((node) => {
+            if (node.id === nodeId) {
+              // Find the parent to calculate absolute position
+              const parent = state.nodes.find((n) => n.id === node.parentId);
+              return {
+                ...node,
+                parentId: undefined,
+                extent: undefined,
+                // Move node to absolute screen space so it doesn't jump
+                position: {
+                  x: node.position.x + (parent?.position.x || 0),
+                  y: node.position.y + (parent?.position.y || 0),
+                },
+              };
+            }
+            return node;
+          }),
+        }));
+      },
     }),
     {
       name: "lore-engine-storage", // Unique key in localStorage

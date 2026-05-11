@@ -8,6 +8,7 @@ import {
   ChevronUp,
   ChevronDown,
   Edit3,
+  Layers
 } from "lucide-react";
 import { useLoreStore } from "../store";
 import ImportButton from "./ImportButton";
@@ -21,6 +22,7 @@ export default function Navbar() {
     exportProject,
     exportGameData,
     resetProject,
+    groupSelectedNodes
   } = useLoreStore();
 
   return (
@@ -64,6 +66,13 @@ export default function Navbar() {
             className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-xl text-xs font-bold hover:bg-orange-600 transition-all hover:scale-105 shadow-md shadow-orange-200"
           >
             <GitBranch size={24} /> New Logic
+          </button>
+
+          <button
+            onClick={() => groupSelectedNodes("Chapter 1", "#eff6ff")}
+            className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700"
+          >
+            <Layers size={18} /> Group Selected
           </button>
         </div>
 

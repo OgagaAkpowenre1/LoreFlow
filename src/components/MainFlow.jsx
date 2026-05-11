@@ -5,12 +5,14 @@ import SceneNode from "./SceneNode";
 import LogicNode from "./LogicNode";
 import Inspector from "./Inspector";
 import ImportButton from "./ImportButton";
+import CollectionNode from "./CollectionNode";
 import Navbar from "./Navbar";
 import { MessageSquare, GitBranch, Download, Trash2 } from "lucide-react";
 
 const nodeTypes = {
   scene: SceneNode,
-  logic: LogicNode
+  logic: LogicNode,
+  collection: CollectionNode
 };
 
 export default function MainFlow() {
