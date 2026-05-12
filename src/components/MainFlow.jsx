@@ -4,15 +4,18 @@ import { useLoreStore } from "../store"; // Import the store
 import SceneNode from "./SceneNode";
 import LogicNode from "./LogicNode";
 import Inspector from "./Inspector";
-import ImportButton from "./ImportButton";
 import CollectionNode from "./CollectionNode";
 import Navbar from "./Navbar";
-import { MessageSquare, GitBranch, Download, Trash2 } from "lucide-react";
+import DeleteEdge from "./DeleteEdge";
 
 const nodeTypes = {
   scene: SceneNode,
   logic: LogicNode,
   collection: CollectionNode
+};
+
+const edgeTypes = {
+  default: DeleteEdge, // Override the default edge with our custom one
 };
 
 export default function MainFlow() {
@@ -23,13 +26,8 @@ export default function MainFlow() {
     onNodesChange,
     onEdgesChange,
     onConnect,
-    updateNodeData,
     editingNodeId, // Pull this
     setEditingNode,
-    addNode, 
-    exportGameData,
-    resetProject,
-    exportProject
   } = useLoreStore();
 
   // Find the selected node for the inspector
@@ -48,9 +46,11 @@ export default function MainFlow() {
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes} // Pass edgeTypes here
           onNodeClick={(_, node) => setEditingNode(node.id)}
           onPaneClick={() => setEditingNode(null)}
           fitView
+          elevateNodesOnSelect={false}
         >
           <Background color="#f1f5f9" variant="dots" gap={20} />
           <Controls />

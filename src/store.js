@@ -2,15 +2,17 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { addEdge, applyNodeChanges, applyEdgeChanges } from "reactflow";
 
-const getAbsolutePos = (node, nodes) => {
-  if (!node.parentId) return node.position;
+const getAbsolutePos = (node, nodes, depth=0) => {
+  // Safety break: if we go deeper than 5 levels, something is wrong
+  if (!node.parentId || depth > 5) return node.position;
   const parent = nodes.find((n) => n.id === node.parentId);
-  const parentPos = getAbsolutePos(parent, nodes);
+  if (!parent) return node.position;
+  const parentPos = getAbsolutePos(parent, nodes, depth+1);
   return {
     x: node.position.x + parentPos.x,
     y: node.position.y + parentPos.y,
   };
-};
+};;
 
 export const ALLOWED_TYPES = [
   { id: "text", label: "Text" },
@@ -299,7 +301,7 @@ export const useLoreStore = create(
           ...connection,
           label: edgeLabel,
           animated: animated,
-          type: "smoothstep",
+          type: "default",
           style: edgeStyle,
           labelStyle: { fill: edgeStyle.stroke, fontWeight: 800, fontSize: 10 },
           labelBgStyle: { fill: "#fff", fillOpacity: 0.9 },
@@ -400,29 +402,6 @@ export const useLoreStore = create(
           },
         })),
 
-      // Create a brand new empty list (e.g., 'WeaponTypes')
-      // createNewList: (listId) =>
-      //   set((state) => ({
-      //     lists: {
-      //       ...state.lists,
-      //       [listId]: [],
-      //     },
-      //   })),
-
-      // // Delete an entire list
-      // deleteList: (listId) =>
-      //   set((state) => {
-      //     if (listId === "available_flags") {
-      //       alert(
-      //         "System Error: 'available_flags' is a core logic list and cannot be deleted.",
-      //       );
-      //       return state;
-      //     }
-      //     const newLists = { ...state.lists };
-      //     delete newLists[listId];
-      //     return { lists: newLists };
-      //   }),
-
       createNewList: (id, type, initialItems) => {
         set((state) => ({
           listMetadata: { ...state.listMetadata, [id]: type },
@@ -471,7 +450,7 @@ export const useLoreStore = create(
           id,
           type,
           position: { x: Math.random() * 400, y: Math.random() * 400 },
-          zIndex: 10, // Ensure standard nodes are always on top
+          zIndex: type === "collection" ? -10 : 10, // Ensure standard nodes are always on top
           data:
             type === "scene"
               ? {
@@ -494,15 +473,63 @@ export const useLoreStore = create(
         }));
       },
 
+      // deleteNode: (nodeId) => {
+      //   set((state) => ({
+      //     // Remove the node
+      //     nodes: state.nodes.filter((n) => n.id !== nodeId),
+      //     // Clean up any "ghost" edges connected to that node
+      //     edges: state.edges.filter(
+      //       (e) => e.source !== nodeId && e.target !== nodeId,
+      //     ),
+      //     // Deselect if we were editing it
+      //     editingNodeId:
+      //       state.editingNodeId === nodeId ? null : state.editingNodeId,
+      //   }));
+      // },
+
       deleteNode: (nodeId) => {
+        const { nodes, edges, removeFromGroup } = get();
+        const nodeToDelete = nodes.find((n) => n.id === nodeId);
+
+        if (nodeToDelete?.type === "collection") {
+          const children = nodes.filter((n) => n.parentId === nodeId);
+
+          if (children.length > 0) {
+            const deleteContent = window.confirm(
+              "This collection contains nodes. Do you want to delete the nodes inside as well?\n\n" +
+                "OK: Delete everything\n" +
+                "Cancel: Keep nodes but remove them from group",
+            );
+
+            if (!deleteContent) {
+              // UNGROUP THEM FIRST to prevent the crash
+              children.forEach((child) => removeFromGroup(child.id));
+            } else {
+              // Delete children IDs and their edges
+              const childIds = children.map((c) => c.id);
+              set((state) => ({
+                nodes: state.nodes.filter(
+                  (n) => n.id !== nodeId && !childIds.includes(n.id),
+                ),
+                edges: state.edges.filter(
+                  (e) =>
+                    !childIds.includes(e.source) &&
+                    !childIds.includes(e.target) &&
+                    e.source !== nodeId &&
+                    e.target !== nodeId,
+                ),
+              }));
+              return; // Exit early as we've handled the set()
+            }
+          }
+        }
+
+        // Standard delete logic
         set((state) => ({
-          // Remove the node
           nodes: state.nodes.filter((n) => n.id !== nodeId),
-          // Clean up any "ghost" edges connected to that node
           edges: state.edges.filter(
             (e) => e.source !== nodeId && e.target !== nodeId,
           ),
-          // Deselect if we were editing it
           editingNodeId:
             state.editingNodeId === nodeId ? null : state.editingNodeId,
         }));
@@ -574,7 +601,7 @@ export const useLoreStore = create(
         const fileName = get()
           .projectName.replace(/[^a-z0-9]/gi, "_")
           .toLowerCase();
-        link.download = `${fileName}_project.lore`; // or .json
+        link.download = `${fileName}_project.json`; // or .json
         // link.download = `narrative_export_${Date.now()}.json`;
         document.body.appendChild(link);
         link.click();
@@ -667,18 +694,25 @@ export const useLoreStore = create(
         return descendants;
       },
 
-      // groupSelectedNodes: (color = "#f1f5f9") => {
+      // groupSelectedNodes: (baseColor = "#6366f1") => {
       //   const { nodes } = get();
-      //   const selectedNodes = nodes.filter((n) => n.selected);
-      //   if (selectedNodes.length < 1) return;
+      //   const selectedNodes = nodes.filter(
+      //     (n) => n.selected && n.type !== "collection",
+      //   );
 
-      //   const title = window.prompt("Collection Name:", "Chapter 1");
+      //   if (selectedNodes.length < 1) return;
+      //   const title = window.prompt("Collection Name:", "New Chapter");
       //   if (!title) return;
 
-      //   const minX = Math.min(...selectedNodes.map((n) => n.position.x));
-      //   const minY = Math.min(...selectedNodes.map((n) => n.position.y));
-      //   const maxX = Math.max(...selectedNodes.map((n) => n.position.x + 260));
-      //   const maxY = Math.max(...selectedNodes.map((n) => n.position.y + 200));
+      //   // FIX: Calculate bounding box using ABSOLUTE coordinates
+      //   const absolutePositions = selectedNodes.map((n) =>
+      //     getAbsolutePos(n, nodes),
+      //   );
+
+      //   const minX = Math.min(...absolutePositions.map((p) => p.x));
+      //   const minY = Math.min(...absolutePositions.map((p) => p.y));
+      //   const maxX = Math.max(...absolutePositions.map((p) => p.x + 260));
+      //   const maxY = Math.max(...absolutePositions.map((p) => p.y + 150));
 
       //   const padding = 60;
       //   const groupId = crypto.randomUUID();
@@ -687,25 +721,26 @@ export const useLoreStore = create(
       //     id: groupId,
       //     type: "collection",
       //     position: { x: minX - padding, y: minY - padding },
+      //     zIndex: -50,
       //     style: {
       //       width: maxX - minX + padding * 2,
       //       height: maxY - minY + padding * 2,
-      //       backgroundColor: color,
-      //       zIndex: -1, // Keep it behind
+      //       zIndex: -50,
       //     },
-      //     // Add pointers-events: none style if edges are still unclickable
-      //     data: { title },
+      //     data: { title, color: baseColor },
       //   };
 
       //   const updatedNodes = nodes.map((node) => {
-      //     if (node.selected) {
+      //     if (node.selected && node.type !== "collection") {
+      //       const absPos = getAbsolutePos(node, nodes);
       //       return {
       //         ...node,
       //         parentId: groupId,
       //         extent: "parent",
+      //         zIndex: 10,
       //         position: {
-      //           x: node.position.x - (minX - padding),
-      //           y: node.position.y - (minY - padding),
+      //           x: absPos.x - (minX - padding),
+      //           y: absPos.y - (minY - padding),
       //         },
       //         selected: false,
       //       };
@@ -713,114 +748,208 @@ export const useLoreStore = create(
       //     return node;
       //   });
 
-      //   // CRITICAL: The Parent MUST be at index 0 to render underneath
       //   set({ nodes: [groupNode, ...updatedNodes] });
       // },
 
-      // 1. Remove node from its current group
-      
-      // Helper inside store.js to get absolute position
+      // Add to group manually
 
+      // groupSelectedNodes: (baseColor = "#6366f1") => {
+      //   const { nodes } = get();
+      //   const selectedNodes = nodes.filter(
+      //     (n) => n.selected && n.type !== "collection",
+      //   );
+      //   if (selectedNodes.length < 1) return;
 
-// Inside useLoreStore actions:
-groupSelectedNodes: (baseColor = "#6366f1") => {
-  const { nodes } = get();
-  const selectedNodes = nodes.filter((n) => n.selected && n.type !== 'collection');
-  
-  if (selectedNodes.length < 1) return;
-  const title = window.prompt("Collection Name:", "New Chapter");
-  if (!title) return;
+      //   const title = window.prompt("Collection Name:", "New Chapter");
+      //   if (!title) return;
 
-  // FIX: Calculate bounding box using ABSOLUTE coordinates
-  const absolutePositions = selectedNodes.map(n => getAbsolutePos(n, nodes));
-  
-  const minX = Math.min(...absolutePositions.map(p => p.x));
-  const minY = Math.min(...absolutePositions.map(p => p.y));
-  const maxX = Math.max(...absolutePositions.map(p => p.x + 260));
-  const maxY = Math.max(...absolutePositions.map(p => p.y + 150));
+      //   const absPositions = selectedNodes.map((n) => getAbsolutePos(n, nodes));
+      //   const minX = Math.min(...absPositions.map((p) => p.x));
+      //   const minY = Math.min(...absPositions.map((p) => p.y));
+      //   const maxX = Math.max(...absPositions.map((p) => p.x + 260));
+      //   const maxY = Math.max(...absPositions.map((p) => p.y + 150));
 
-  const padding = 60;
-  const groupId = crypto.randomUUID();
+      //   const padding = 60;
+      //   const groupId = crypto.randomUUID();
 
-  const groupNode = {
-    id: groupId,
-    type: "collection",
-    position: { x: minX - padding, y: minY - padding },
-    zIndex : 0,
-    style: {
-      width: (maxX - minX) + padding * 2,
-      height: (maxY - minY) + padding * 2,
-    },
-    data: { title, color: baseColor },
-  };
+      //   const groupNode = {
+      //     id: groupId,
+      //     type: "collection",
+      //     position: { x: minX - padding, y: minY - padding },
+      //     zIndex: -50,
+      //     style: {
+      //       width: maxX - minX + padding * 2,
+      //       height: maxY - minY + padding * 2,
+      //     },
+      //     data: { title, color: baseColor },
+      //   };
 
-  const updatedNodes = nodes.map((node) => {
-    if (node.selected && node.type !== 'collection') {
-      const absPos = getAbsolutePos(node, nodes);
-      return {
-        ...node,
-        parentId: groupId,
-        extent: 'parent',
-        position: {
-          x: absPos.x - (minX - padding),
-          y: absPos.y - (minY - padding),
-        },
-        selected: false,
-      };
-    }
-    return node;
-  });
+      //   const updatedNodes = nodes.map((node) => {
+      //     if (node.selected && node.type !== "collection") {
+      //       const abs = getAbsolutePos(node, nodes);
+      //       return {
+      //         ...node,
+      //         parentId: groupId,
+      //         extent: "parent",
+      //         position: {
+      //           x: abs.x - (minX - padding),
+      //           y: abs.y - (minY - padding),
+      //         },
+      //         selected: false, // Deselect after grouping for clarity
+      //       };
+      //     }
+      //     return node;
+      //   });
 
-  set({ nodes: [groupNode, ...updatedNodes] });
-},
+      //   // This single set() call is the secret to "instant snapping"
+      //   set({ nodes: [groupNode, ...updatedNodes] });
+      // },
 
-// Add to group manually
-moveToCollection: (nodeId, targetGroupId) => {
-  set((state) => {
-    const node = state.nodes.find(n => n.id === nodeId);
-    const targetGroup = state.nodes.find(n => n.id === targetGroupId);
-    if (!node || !targetGroup) return state;
+      // moveToCollection: (targetGroupId) => {
+      //   const { nodes } = get();
+      //   const targetGroup = nodes.find((n) => n.id === targetGroupId);
+      //   if (!targetGroup) return;
 
-    const absPos = getAbsolutePos(node, state.nodes);
+      //   // Pre-calculate all absolute positions BEFORE updating state
+      //   // This prevents the "moving target" recursion error
+      //   const updates = nodes.map((n) => {
+      //     if (n.selected && n.type !== "collection" && n.id !== targetGroupId) {
+      //       const absPos = getAbsolutePos(n, nodes);
+      //       return {
+      //         ...n,
+      //         parentId: targetGroupId,
+      //         extent: "parent",
+      //         zIndex: 10, // Ensure children stay on top
+      //         position: {
+      //           x: absPos.x - targetGroup.position.x,
+      //           y: absPos.y - targetGroup.position.y,
+      //         },
+      //       };
+      //     }
+      //     return n;
+      //   });
 
-    return {
-      nodes: state.nodes.map(n => {
-        if (n.id === nodeId) {
+      //   set({ nodes: updates });
+      // },
+
+      // ... (keep getAbsolutePos and ALLOWED_TYPES as they are)
+
+      groupSelectedNodes: (baseColor = "#6366f1") => {
+        const { nodes } = get();
+        const selectedNodes = nodes.filter(
+          (n) => n.selected && n.type !== "collection",
+        );
+
+        if (selectedNodes.length < 1) return;
+        const title = window.prompt("Collection Name:", "New Chapter");
+        if (!title) return;
+
+        // 1. Calculate the bounding box using absolute positions
+        const absPositions = selectedNodes.map((n) => getAbsolutePos(n, nodes));
+        const minX = Math.min(...absPositions.map((p) => p.x));
+        const minY = Math.min(...absPositions.map((p) => p.y));
+        const maxX = Math.max(...absPositions.map((p) => p.x + 260));
+        const maxY = Math.max(...absPositions.map((p) => p.y + 200));
+
+        const padding = 60;
+        const groupId = crypto.randomUUID();
+
+        // 2. Create the Collection Node
+        const groupNode = {
+          id: groupId,
+          type: "collection",
+          position: { x: minX - padding, y: minY - padding },
+          zIndex: -50,
+          style: {
+            width: maxX - minX + padding * 2,
+            height: maxY - minY + padding * 2,
+          },
+          data: { title, color: baseColor },
+        };
+
+        // 3. Update all nodes: assign parent to selected, keep others exactly as they are
+        const nextNodes = nodes.map((node) => {
+          if (node.selected && node.type !== "collection") {
+            const abs = getAbsolutePos(node, nodes);
+            return {
+              ...node,
+              parentId: groupId,
+              extent: "parent",
+              zIndex: 10,
+              position: {
+                x: abs.x - (minX - padding),
+                y: abs.y - (minY - padding),
+              },
+              selected: false,
+            };
+          }
+          return node;
+        });
+
+        // 4. Combine: Group Node first (bottom), then all other nodes
+        set({ nodes: [groupNode, ...nextNodes] });
+      },
+
+      moveToCollection: (targetGroupId) => {
+        const { nodes } = get();
+        const targetGroup = nodes.find((n) => n.id === targetGroupId);
+        if (!targetGroup) return;
+
+        const updates = nodes.map((n) => {
+          if (n.selected && n.type !== "collection" && n.id !== targetGroupId) {
+            const absPos = getAbsolutePos(n, nodes);
+            return {
+              ...n,
+              parentId: targetGroupId,
+              extent: "parent",
+              zIndex: 10,
+              position: {
+                x: absPos.x - targetGroup.position.x,
+                y: absPos.y - targetGroup.position.y,
+              },
+            };
+          }
+          return n;
+        });
+
+        // Re-sort so parents are earlier in the array than children
+        const sortedNodes = [...updates].sort((a, b) => {
+          if (a.type === "collection" && b.type !== "collection") return -1;
+          if (a.type !== "collection" && b.type === "collection") return 1;
+          return 0;
+        });
+
+        set({ nodes: sortedNodes });
+      },
+
+      removeFromGroup: () => {
+        set((state) => {
+          const { nodes } = state;
           return {
-            ...n,
-            parentId: targetGroupId,
-            extent: 'parent',
-            position: {
-              x: absPos.x - targetGroup.position.x,
-              y: absPos.y - targetGroup.position.y
-            }
+            nodes: nodes.map((node) => {
+              // If the node is selected AND has a parent, pop it out
+              if (node.selected && node.parentId) {
+                const parent = nodes.find((n) => n.id === node.parentId);
+                return {
+                  ...node,
+                  parentId: undefined,
+                  extent: undefined,
+                  // Calculate absolute position so it stays exactly where it is visually
+                  position: {
+                    x: node.position.x + (parent?.position.x || 0),
+                    y: node.position.y + (parent?.position.y || 0),
+                  },
+                };
+              }
+              return node;
+            }),
           };
-        }
-        return n;
-      })
-    };
-  });
-},
-      
-      removeFromGroup: (nodeId) => {
+        });
+      },
+
+      deleteEdge: (edgeId) => {
         set((state) => ({
-          nodes: state.nodes.map((node) => {
-            if (node.id === nodeId) {
-              // Find the parent to calculate absolute position
-              const parent = state.nodes.find((n) => n.id === node.parentId);
-              return {
-                ...node,
-                parentId: undefined,
-                extent: undefined,
-                // Move node to absolute screen space so it doesn't jump
-                position: {
-                  x: node.position.x + (parent?.position.x || 0),
-                  y: node.position.y + (parent?.position.y || 0),
-                },
-              };
-            }
-            return node;
-          }),
+          edges: state.edges.filter((e) => e.id !== edgeId),
         }));
       },
     }),
@@ -830,3 +959,6 @@ moveToCollection: (nodeId, targetGroupId) => {
     },
   ),
 );
+
+
+window.useLoreStore = useLoreStore;

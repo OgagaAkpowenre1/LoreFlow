@@ -152,7 +152,7 @@ export default function Inspector({ selectedNode }) {
         {selectedNode?.parentId && (
           <div className="pt-3">
             <button
-              onClick={() => removeFromGroup(selectedNode.id)}
+              onClick={() => removeFromGroup()}
               className="w-full flex items-center justify-center gap-2 py-2.5 bg-gray-100 text-gray-600 border border-gray-200 rounded-xl text-[10px] font-black uppercase hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all"
             >
               Remove From Collection
@@ -190,8 +190,15 @@ export default function Inspector({ selectedNode }) {
                 className="flex-grow p-2 text-[10px] font-bold border rounded bg-gray-50 outline-none"
                 value={selectedNode.parentId || ""}
                 onChange={(e) => {
-                  if (e.target.value === "") removeFromGroup(selectedNode.id);
-                  else moveToCollection(selectedNode.id, e.target.value);
+                  if (e.target.value === "") {
+                    // If moving to "Global", we still remove the selection from group
+                    nodes
+                      .filter((n) => n.selected)
+                      .forEach((n) => removeFromGroup(n.id));
+                  } else {
+                    // We only pass the destination Group ID
+                    moveToCollection(e.target.value);
+                  }
                 }}
               >
                 <option value="">No Collection (Global)</option>
