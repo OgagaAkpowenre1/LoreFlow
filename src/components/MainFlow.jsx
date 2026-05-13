@@ -7,11 +7,13 @@ import Inspector from "./Inspector";
 import CollectionNode from "./CollectionNode";
 import Navbar from "./Navbar";
 import DeleteEdge from "./DeleteEdge";
+import StartNode from "./StartNode";
 
 const nodeTypes = {
   scene: SceneNode,
   logic: LogicNode,
-  collection: CollectionNode
+  collection: CollectionNode,
+  start: StartNode
 };
 
 const edgeTypes = {

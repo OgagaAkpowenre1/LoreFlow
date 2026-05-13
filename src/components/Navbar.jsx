@@ -8,7 +8,8 @@ import {
   ChevronUp,
   ChevronDown,
   Edit3,
-  Layers
+  Layers,
+  Play
 } from "lucide-react";
 import { useLoreStore } from "../store";
 import ImportButton from "./ImportButton";
@@ -31,7 +32,7 @@ export default function Navbar() {
        When hidden, we translate it up by 100% of its own height.
     */
     <div
-      className={`fixed top-0 left-1/2 -translate-x-1/2 z-[100] transition-transform duration-500 ease-in-out ${
+      className={`fixed top-0 left-1/2 -translate-x-1/2 z-[200] transition-transform duration-500 ease-in-out ${
         isHidden ? "-translate-y-full" : "translate-y-0"
       }`}
     >
@@ -55,6 +56,13 @@ export default function Navbar() {
 
         {/* Node Spawning */}
         <div className="flex gap-2">
+          <button
+            onClick={() => addNode("start")}
+            title="Set Project Start"
+            className="w-12 h-12 flex items-center justify-center rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 hover:scale-110 transition-all shadow-lg shadow-emerald-200 group"
+          >
+            <Play size={20} fill="currentColor" />
+          </button>
           <button
             onClick={() => addNode("scene")}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all hover:scale-105 shadow-md shadow-blue-200"

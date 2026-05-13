@@ -1,5 +1,4 @@
-import React from "react";
-import { Settings2, X, Trash2, MousePointerClick, Palette } from "lucide-react";
+import { Settings2, X, Trash2, MousePointerClick, Palette, Play } from "lucide-react";
 import { useLoreStore } from "../store";
 import SceneForm from "./SceneForm";
 import LogicForm from "./LogicForm";
@@ -96,6 +95,31 @@ export default function Inspector({ selectedNode }) {
           <LogicForm node={selectedNode} />
         ) : selectedNode?.type === "collection" ? (
           <CollectionForm node={selectedNode} />
+        ) : selectedNode?.type === "start" ? (
+          <div className="space-y-4">
+            <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100 text-center">
+              <div className="w-16 h-16 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-100">
+                <Play
+                  size={24}
+                  className="text-white ml-1"
+                  fill="currentColor"
+                />
+              </div>
+              <h3 className="text-sm font-black text-emerald-900 uppercase tracking-widest">
+                Entry Point
+              </h3>
+              <p className="text-[11px] text-emerald-700 mt-2 leading-relaxed italic">
+                This is where your story begins. Connect this node to the first
+                scene or logic check of your game.
+              </p>
+            </div>
+
+            <div className="p-4 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+              <p className="text-[10px] font-bold text-gray-400 uppercase text-center">
+                No configurable data for this node
+              </p>
+            </div>
+          </div>
         ) : selectedNode ? (
           <SceneForm node={selectedNode} />
         ) : null}

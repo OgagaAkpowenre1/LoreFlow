@@ -239,12 +239,25 @@ export const useLoreStore = create(
 
       // Add a new option to a list (e.g., adding a new character name)
       addToList: (listId, newItem) =>
-        set((state) => ({
-          lists: {
-            ...state.lists,
-            [listId]: [...(state.lists[listId] || []), newItem],
-          },
-        })),
+        set((state) => {
+          let finalItem = newItem;
+          // If adding a variable, ensure it has a type-safe default value
+          if (
+            state.listMetadata[listId] === "variable" &&
+            typeof newItem === "object"
+          ) {
+            finalItem = {
+              ...newItem,
+              defaultValue: newItem.type === "number" ? 0 : false,
+            };
+          }
+          return {
+            lists: {
+              ...state.lists,
+              [listId]: [...(state.lists[listId] || []), finalItem],
+            },
+          };
+        }),
 
       // Add a brand new field to the UI (e.g., adding "Camera Shake" to dialogue lines)
       addFieldToSchema: (target, newField) =>
@@ -309,14 +322,6 @@ export const useLoreStore = create(
 
         set({ edges: addEdge(newEdge, edges) });
       },
-
-      // updateNodeData: (nodeId, newData) => {
-      //   set((state) => ({
-      //     nodes: state.nodes.map((node) =>
-      //       node.id === nodeId ? { ...node, data: newData } : node,
-      //     ),
-      //   }));
-      // },
 
       updateNodeData: (nodeId, newData) => {
         set((state) => {
@@ -429,14 +434,62 @@ export const useLoreStore = create(
         })),
 
       // Update a specific item in a list
-      updateItemInList: (listId, index, newValue) =>
+      // updateItemInList: (listId, index, newValue) =>
+      //   set((state) => {
+      //     const newList = [...state.lists[listId]];
+      //     newList[index] = newValue;
+      //     return {
+      //       lists: { ...state.lists, [listId]: newList },
+      //     };
+      //   }),
+
+      // Inside useLoreStore actions:
+
+      updateItemInList: (listId, index, newValue) => {
         set((state) => {
-          const newList = [...state.lists[listId]];
+          const newList = [...(state.lists[listId] || [])];
+          // If it's a string list, newValue is a string.
+          // If it's a variable list, newValue is the updated object.
           newList[index] = newValue;
+
           return {
             lists: { ...state.lists, [listId]: newList },
           };
-        }),
+        });
+      },
+
+      // A specialized action for variables to keep the code clean
+      // updateVariable: (listId, index, field, value) => {
+      //   set((state) => {
+      //     const newList = [...(state.lists[listId] || [])];
+      //     const updatedVar = { ...newList[index], [field]: value };
+
+      //     // If renaming, we might want to default the value to match the type
+      //     if (field === "type") {
+      //       updatedVar.default = value === "number" ? 0 : false;
+      //     }
+
+      //     newList[index] = updatedVar;
+      //     return {
+      //       lists: { ...state.lists, [listId]: newList },
+      //     };
+      //   });
+      // },
+
+      updateVariable: (listId, index, field, value) => {
+        set((state) => {
+          const newList = [...(state.lists[listId] || [])];
+          const updatedVar = { ...newList[index], [field]: value };
+
+          // If the type changes, we MUST reset the defaultValue to be type-safe
+          if (field === "type") {
+            updatedVar.defaultValue = value === "number" ? 0 : false;
+          }
+
+          newList[index] = updatedVar;
+          return { lists: { ...state.lists, [listId]: newList } };
+        });
+      },
 
       editingNodeId: null, // New property
 
@@ -446,6 +499,20 @@ export const useLoreStore = create(
 
       addNode: (type) => {
         const id = crypto.randomUUID();
+
+        // Logic default data now uses a 'conditions' array
+        const defaultLogicData = {
+          logicalOperator: "AND", // "AND" or "OR"
+          conditions: [
+            {
+              id: crypto.randomUUID(),
+              check_flag: "",
+              operator: "==",
+              value: "true",
+            },
+          ],
+        };
+
         const newNode = {
           id,
           type,
@@ -459,38 +526,78 @@ export const useLoreStore = create(
                   choices: [],
                   flags: [],
                 }
-              : {
-                  check_flag: "",
-                  operator: "==",
-                  value: "true",
-                },
+              : type === "logic"
+                ? defaultLogicData
+                : {}, // Start node needs no data
         };
 
-        set((state) => ({
-          nodes: [...state.nodes, newNode],
-          // Optional: Auto-select and start editing the new node
-          editingNodeId: id,
-        }));
+        set((state) => {
+          // RULE: Only one start node allowed. If adding start, remove any existing one.
+          if (type === "start") {
+            return {
+              nodes: [
+                ...state.nodes.filter((n) => n.type !== "start"),
+                newNode,
+              ],
+            };
+          }
+          return { nodes: [...state.nodes, newNode] };
+        });
       },
 
       // deleteNode: (nodeId) => {
+      //   const { nodes, edges, removeFromGroup } = get();
+      //   const nodeToDelete = nodes.find((n) => n.id === nodeId);
+
+      //   if (nodeToDelete?.type === "collection") {
+      //     const children = nodes.filter((n) => n.parentId === nodeId);
+
+      //     if (children.length > 0) {
+      //       const deleteContent = window.confirm(
+      //         "This collection contains nodes. Do you want to delete the nodes inside as well?\n\n" +
+      //           "OK: Delete everything\n" +
+      //           "Cancel: Keep nodes but remove them from group",
+      //       );
+
+      //       if (!deleteContent) {
+      //         // UNGROUP THEM FIRST to prevent the crash
+      //         children.forEach((child) => removeFromGroup(child.id));
+      //       } else {
+      //         // Delete children IDs and their edges
+      //         const childIds = children.map((c) => c.id);
+      //         set((state) => ({
+      //           nodes: state.nodes.filter(
+      //             (n) => n.id !== nodeId && !childIds.includes(n.id),
+      //           ),
+      //           edges: state.edges.filter(
+      //             (e) =>
+      //               !childIds.includes(e.source) &&
+      //               !childIds.includes(e.target) &&
+      //               e.source !== nodeId &&
+      //               e.target !== nodeId,
+      //           ),
+      //         }));
+      //         return; // Exit early as we've handled the set()
+      //       }
+      //     }
+      //   }
+
+      //   // Standard delete logic
       //   set((state) => ({
-      //     // Remove the node
       //     nodes: state.nodes.filter((n) => n.id !== nodeId),
-      //     // Clean up any "ghost" edges connected to that node
       //     edges: state.edges.filter(
       //       (e) => e.source !== nodeId && e.target !== nodeId,
       //     ),
-      //     // Deselect if we were editing it
       //     editingNodeId:
       //       state.editingNodeId === nodeId ? null : state.editingNodeId,
       //   }));
       // },
 
       deleteNode: (nodeId) => {
-        const { nodes, edges, removeFromGroup } = get();
+        const { nodes, edges } = get();
         const nodeToDelete = nodes.find((n) => n.id === nodeId);
 
+        // 1. Handle Collection Deletion Logic
         if (nodeToDelete?.type === "collection") {
           const children = nodes.filter((n) => n.parentId === nodeId);
 
@@ -502,10 +609,39 @@ export const useLoreStore = create(
             );
 
             if (!deleteContent) {
-              // UNGROUP THEM FIRST to prevent the crash
-              children.forEach((child) => removeFromGroup(child.id));
+              // --- SCENARIO: KEEP CHILDREN, DELETE BOX ---
+              set((state) => {
+                const updatedNodes = state.nodes
+                  .filter((n) => n.id !== nodeId) // Remove the collection node
+                  .map((node) => {
+                    if (node.parentId === nodeId) {
+                      // Find parent's position to calculate absolute coordinates
+                      const parent = state.nodes.find((n) => n.id === nodeId);
+                      return {
+                        ...node,
+                        parentId: undefined,
+                        extent: undefined,
+                        position: {
+                          x: node.position.x + (parent?.position.x || 0),
+                          y: node.position.y + (parent?.position.y || 0),
+                        },
+                      };
+                    }
+                    return node;
+                  });
+
+                return {
+                  nodes: updatedNodes,
+                  edges: state.edges.filter(
+                    (e) => e.source !== nodeId && e.target !== nodeId,
+                  ),
+                  editingNodeId:
+                    state.editingNodeId === nodeId ? null : state.editingNodeId,
+                };
+              });
+              return; // Exit here, state is updated
             } else {
-              // Delete children IDs and their edges
+              // --- SCENARIO: DELETE EVERYTHING ---
               const childIds = children.map((c) => c.id);
               set((state) => ({
                 nodes: state.nodes.filter(
@@ -518,13 +654,18 @@ export const useLoreStore = create(
                     e.source !== nodeId &&
                     e.target !== nodeId,
                 ),
+                editingNodeId:
+                  state.editingNodeId === nodeId ||
+                  childIds.includes(state.editingNodeId)
+                    ? null
+                    : state.editingNodeId,
               }));
-              return; // Exit early as we've handled the set()
+              return; // Exit here
             }
           }
         }
 
-        // Standard delete logic
+        // 2. Standard Delete Logic (for Scene/Logic/Start nodes)
         set((state) => ({
           nodes: state.nodes.filter((n) => n.id !== nodeId),
           edges: state.edges.filter(
@@ -538,71 +679,150 @@ export const useLoreStore = create(
       // Add this near your other node actions (like addNode, deleteNode)
       setNodes: (newNodes) => set({ nodes: newNodes }),
 
-      exportGameData: () => {
-        const { nodes, edges, lists, schema } = get();
+      // exportGameData: () => {
+      //   const { nodes, edges, lists, schema } = get();
 
-        // const processNode = (node) => {
-        //   // Create a flat map of handleId -> targetId
-        //   const nextMap = {};
-        //   edges
-        //     .filter((edge) => edge.source === node.id)
-        //     .forEach((edge) => {
-        //       // If it's a linear node with no specific handle ID, we can use a 'default' key
-        //       const key = edge.sourceHandle || "default";
-        //       nextMap[key] = edge.target;
-        //     });
+      //   const processNode = (node) => {
+      //     const nextMap = {};
+      //     edges
+      //       .filter((e) => e.source === node.id)
+      //       .forEach((e) => {
+      //         // --- NORMALIZATION LOGIC ---
+      //         // If it's a linear output (null, undefined, or 'default-output'),
+      //         // we always name the key "next" for the engine.
+      //         const key =
+      //           !e.sourceHandle || e.sourceHandle === "default-output"
+      //             ? "next"
+      //             : e.sourceHandle;
+
+      //         nextMap[key] = e.target;
+      //       });
+
+      //     return {
+      //       id: node.id,
+      //       type: node.type,
+      //       // collectionId: node.parentId || null, // Export the group ownership
+      //       data: node.data,
+      //       next: nextMap, // The clean navigation map
+      //     };
+      //   };
+
+      //   const exportBundle = {
+      //     metadata: { exportedAt: new Date().toISOString() },
+      //     // The "Registry" handles your global data
+      //     registry: {
+      //       // All items from your Global Lists (Characters, Locations, etc.)
+      //       lists: lists,
+      //       // We can also export the Schema if the engine needs to know
+      //       // what "types" of data to expect (e.g., 'flag_group')
+      //       definitions: {
+      //         nodeFields: schema.nodeFields.map((f) => ({
+      //           id: f.id,
+      //           type: f.type,
+      //         })),
+      //         logicFields: schema.logicFields.map((f) => ({
+      //           id: f.id,
+      //           type: f.type,
+      //         })),
+      //       },
+      //     },
+      //     variables: lists.variables || [],
+      //     scenes: nodes.filter((n) => n.type === "scene").map(processNode),
+      //     logic: nodes.filter((n) => n.type === "logic").map(processNode),
+      //   };
+
+      //   // 3. Trigger Download
+      //   const blob = new Blob([JSON.stringify(exportBundle, null, 2)], {
+      //     type: "application/json",
+      //   });
+      //   const url = URL.createObjectURL(blob);
+      //   const link = document.createElement("a");
+      //   link.href = url;
+      //   const fileName = get()
+      //     .projectName.replace(/[^a-z0-9]/gi, "_")
+      //     .toLowerCase();
+      //   link.download = `${fileName}_project.json`; // or .json
+      //   // link.download = `narrative_export_${Date.now()}.json`;
+      //   document.body.appendChild(link);
+      //   link.click();
+      //   document.body.removeChild(link);
+      // },
+
+      exportGameData: () => {
+        const { nodes, edges, lists, schema, projectName } = get();
+
+        // 1. Find the actual Start Node component
+        const startNode = nodes.find((n) => n.type === "start");
+
+        // 2. Find the edge connected to it to see where it's pointing
+        const startEdge = edges.find((e) => e.source === startNode?.id);
+
+        // 3. The "Entry Point" is the ID of the FIRST playable node (Scene or Logic)
+        const entryPointId = startEdge ? startEdge.target : null;
+
         const processNode = (node) => {
           const nextMap = {};
           edges
             .filter((e) => e.source === node.id)
             .forEach((e) => {
-              nextMap[e.sourceHandle || "default"] = e.target;
+              // --- NORMALIZATION ---
+              // Converts "default-output" or null handles to "next" for the engine
+              const key =
+                !e.sourceHandle || e.sourceHandle === "default-output"
+                  ? "next"
+                  : e.sourceHandle;
+
+              nextMap[key] = e.target;
             });
 
           return {
             id: node.id,
             type: node.type,
-            collectionId: node.parentId || null, // Export the group ownership
             data: node.data,
-            next: nextMap, // The clean navigation map
+            next: nextMap,
           };
         };
 
         const exportBundle = {
-          metadata: { exportedAt: new Date().toISOString() },
-          // The "Registry" handles your global data
+          metadata: {
+            projectName,
+            exportedAt: new Date().toISOString(),
+            version: "2.0", // Incremented version for the new structure
+          },
+
+          // The "Registry" handles your global definitions
           registry: {
-            // All items from your Global Lists (Characters, Locations, etc.)
             lists: lists,
-            // We can also export the Schema if the engine needs to know
-            // what "types" of data to expect (e.g., 'flag_group')
+            // Definitions tell the engine what fields exist in the UI
             definitions: {
               nodeFields: schema.nodeFields.map((f) => ({
                 id: f.id,
                 type: f.type,
               })),
-              logicFields: schema.logicFields.map((f) => ({
+              sequenceFields: schema.sequenceFields.map((f) => ({
                 id: f.id,
                 type: f.type,
               })),
             },
           },
+
+          // Top-level arrays for easy parsing in Godot
+          startNode: entryPointId,
           scenes: nodes.filter((n) => n.type === "scene").map(processNode),
           logic: nodes.filter((n) => n.type === "logic").map(processNode),
         };
 
-        // 3. Trigger Download
+        // --- Download Trigger ---
         const blob = new Blob([JSON.stringify(exportBundle, null, 2)], {
           type: "application/json",
         });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        const fileName = get()
-          .projectName.replace(/[^a-z0-9]/gi, "_")
-          .toLowerCase();
-        link.download = `${fileName}_project.json`; // or .json
-        // link.download = `narrative_export_${Date.now()}.json`;
+
+        const fileName = projectName.replace(/[^a-z0-9]/gi, "_").toLowerCase();
+        link.download = `${fileName}_export.json`;
+
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -693,146 +913,6 @@ export const useLoreStore = create(
         }
         return descendants;
       },
-
-      // groupSelectedNodes: (baseColor = "#6366f1") => {
-      //   const { nodes } = get();
-      //   const selectedNodes = nodes.filter(
-      //     (n) => n.selected && n.type !== "collection",
-      //   );
-
-      //   if (selectedNodes.length < 1) return;
-      //   const title = window.prompt("Collection Name:", "New Chapter");
-      //   if (!title) return;
-
-      //   // FIX: Calculate bounding box using ABSOLUTE coordinates
-      //   const absolutePositions = selectedNodes.map((n) =>
-      //     getAbsolutePos(n, nodes),
-      //   );
-
-      //   const minX = Math.min(...absolutePositions.map((p) => p.x));
-      //   const minY = Math.min(...absolutePositions.map((p) => p.y));
-      //   const maxX = Math.max(...absolutePositions.map((p) => p.x + 260));
-      //   const maxY = Math.max(...absolutePositions.map((p) => p.y + 150));
-
-      //   const padding = 60;
-      //   const groupId = crypto.randomUUID();
-
-      //   const groupNode = {
-      //     id: groupId,
-      //     type: "collection",
-      //     position: { x: minX - padding, y: minY - padding },
-      //     zIndex: -50,
-      //     style: {
-      //       width: maxX - minX + padding * 2,
-      //       height: maxY - minY + padding * 2,
-      //       zIndex: -50,
-      //     },
-      //     data: { title, color: baseColor },
-      //   };
-
-      //   const updatedNodes = nodes.map((node) => {
-      //     if (node.selected && node.type !== "collection") {
-      //       const absPos = getAbsolutePos(node, nodes);
-      //       return {
-      //         ...node,
-      //         parentId: groupId,
-      //         extent: "parent",
-      //         zIndex: 10,
-      //         position: {
-      //           x: absPos.x - (minX - padding),
-      //           y: absPos.y - (minY - padding),
-      //         },
-      //         selected: false,
-      //       };
-      //     }
-      //     return node;
-      //   });
-
-      //   set({ nodes: [groupNode, ...updatedNodes] });
-      // },
-
-      // Add to group manually
-
-      // groupSelectedNodes: (baseColor = "#6366f1") => {
-      //   const { nodes } = get();
-      //   const selectedNodes = nodes.filter(
-      //     (n) => n.selected && n.type !== "collection",
-      //   );
-      //   if (selectedNodes.length < 1) return;
-
-      //   const title = window.prompt("Collection Name:", "New Chapter");
-      //   if (!title) return;
-
-      //   const absPositions = selectedNodes.map((n) => getAbsolutePos(n, nodes));
-      //   const minX = Math.min(...absPositions.map((p) => p.x));
-      //   const minY = Math.min(...absPositions.map((p) => p.y));
-      //   const maxX = Math.max(...absPositions.map((p) => p.x + 260));
-      //   const maxY = Math.max(...absPositions.map((p) => p.y + 150));
-
-      //   const padding = 60;
-      //   const groupId = crypto.randomUUID();
-
-      //   const groupNode = {
-      //     id: groupId,
-      //     type: "collection",
-      //     position: { x: minX - padding, y: minY - padding },
-      //     zIndex: -50,
-      //     style: {
-      //       width: maxX - minX + padding * 2,
-      //       height: maxY - minY + padding * 2,
-      //     },
-      //     data: { title, color: baseColor },
-      //   };
-
-      //   const updatedNodes = nodes.map((node) => {
-      //     if (node.selected && node.type !== "collection") {
-      //       const abs = getAbsolutePos(node, nodes);
-      //       return {
-      //         ...node,
-      //         parentId: groupId,
-      //         extent: "parent",
-      //         position: {
-      //           x: abs.x - (minX - padding),
-      //           y: abs.y - (minY - padding),
-      //         },
-      //         selected: false, // Deselect after grouping for clarity
-      //       };
-      //     }
-      //     return node;
-      //   });
-
-      //   // This single set() call is the secret to "instant snapping"
-      //   set({ nodes: [groupNode, ...updatedNodes] });
-      // },
-
-      // moveToCollection: (targetGroupId) => {
-      //   const { nodes } = get();
-      //   const targetGroup = nodes.find((n) => n.id === targetGroupId);
-      //   if (!targetGroup) return;
-
-      //   // Pre-calculate all absolute positions BEFORE updating state
-      //   // This prevents the "moving target" recursion error
-      //   const updates = nodes.map((n) => {
-      //     if (n.selected && n.type !== "collection" && n.id !== targetGroupId) {
-      //       const absPos = getAbsolutePos(n, nodes);
-      //       return {
-      //         ...n,
-      //         parentId: targetGroupId,
-      //         extent: "parent",
-      //         zIndex: 10, // Ensure children stay on top
-      //         position: {
-      //           x: absPos.x - targetGroup.position.x,
-      //           y: absPos.y - targetGroup.position.y,
-      //         },
-      //       };
-      //     }
-      //     return n;
-      //   });
-
-      //   set({ nodes: updates });
-      // },
-
-      // ... (keep getAbsolutePos and ALLOWED_TYPES as they are)
 
       groupSelectedNodes: (baseColor = "#6366f1") => {
         const { nodes } = get();
@@ -950,6 +1030,49 @@ export const useLoreStore = create(
       deleteEdge: (edgeId) => {
         set((state) => ({
           edges: state.edges.filter((e) => e.id !== edgeId),
+        }));
+      },
+
+      addConditionToLogic: (nodeId) => {
+        set((state) => ({
+          nodes: state.nodes.map((n) =>
+            n.id === nodeId
+              ? {
+                  ...n,
+                  data: {
+                    ...n.data,
+                    // Fallback to empty array if conditions doesn't exist yet
+                    conditions: [
+                      ...(n.data.conditions || []),
+                      {
+                        id: crypto.randomUUID(),
+                        check_flag: "",
+                        operator: "==",
+                        value: "true",
+                      },
+                    ],
+                  },
+                }
+              : n,
+          ),
+        }));
+      },
+
+      removeConditionFromLogic: (nodeId, conditionId) => {
+        set((state) => ({
+          nodes: state.nodes.map((n) =>
+            n.id === nodeId
+              ? {
+                  ...n,
+                  data: {
+                    ...n.data,
+                    conditions: (n.data.conditions || []).filter(
+                      (c) => c.id !== conditionId,
+                    ),
+                  },
+                }
+              : n,
+          ),
         }));
       },
     }),

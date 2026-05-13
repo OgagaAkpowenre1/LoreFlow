@@ -504,4 +504,9 @@ should we have more types of nodes?
 allow for point checking and point type of values
 delete project throws alert, make component
 
-things like color themes feels like it's under node groupings, if we're handling node groupings i want to go all the way, allowing the user to select nodes, put them in a smaller self contained group and so on, maybe a new node type will be added, called collections? also need an intuitive way to select multiple nodes at once, like a choice of all connected nodes connected to this currently selected node, or pick one by one, or something
+A Warning for the Future (The "Orphan Reference" Problem)
+
+If you change a variable name from gold_amount to player_gold in this list, any Logic Node on your map that was previously checking gold_amount will now be pointing to a ghost.
+
+For now: Just remember to update your logic nodes if you rename a variable.
+For later: We can add a "Refactor" function that searches all nodes and updates the check_flag automatically if a name changes.

@@ -799,7 +799,10 @@ function ListsTab() {
     removeItemFromList,
     createNewList,
     deleteList,
+    updateItemInList,
+    updateVariable,
   } = useLoreStore();
+
   const [isCreating, setIsCreating] = useState(false);
   const [itemInputs, setItemInputs] = useState({});
   const [selectedTypes, setSelectedTypes] = useState({});
@@ -827,7 +830,7 @@ function ListsTab() {
         {!isCreating && (
           <button
             onClick={() => setIsCreating(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all shadow-md"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all shadow-md"
           >
             <Plus size={15} /> New List
           </button>
@@ -844,7 +847,6 @@ function ListsTab() {
         />
       )}
 
-      {/* Grid: 1 col on mobile, 2 on lg */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {Object.entries(lists).map(([id, items]) => {
           const isVarList = listMetadata[id] === "variable";
@@ -853,8 +855,10 @@ function ListsTab() {
           return (
             <div
               key={id}
-              className="border border-gray-200 rounded-xl p-4 bg-white shadow-sm flex flex-col min-h-[280px] sm:min-h-[300px]"
+              /* FIX 1: Set a fixed height (h-[380px]) instead of min-h */
+              className="border border-gray-200 rounded-xl p-4 bg-white shadow-sm flex flex-col h-[380px] overflow-hidden"
             >
+              {/* Header - Fixed height */}
               <div className="flex justify-between items-center mb-3 shrink-0 gap-2">
                 <h4 className="text-[11px] font-black text-blue-600 uppercase tracking-widest truncate">
                   {id}
@@ -869,28 +873,98 @@ function ListsTab() {
                   >
                     {isVarList ? "Variable" : "String"}
                   </span>
-                  <button
-                    onClick={() => deleteList(id)}
-                    title="Delete list"
-                    className="text-gray-300 hover:text-red-500 hover:bg-red-50 p-1 rounded-lg transition-all"
-                  >
-                    <Trash2 size={13} />
-                  </button>
+                  {id !== "variables" && (
+                    <button
+                      onClick={() => deleteList(id)}
+                      className="text-gray-300 hover:text-red-500 hover:bg-red-50 p-1 rounded-lg transition-all"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {/* Tags area — grows to fill space */}
-              <div className="flex-grow overflow-y-auto mb-3 flex flex-wrap gap-1.5 content-start">
+              {/* Editable Tags Area - FIX 2: This child grows and scrolls */}
+              <div className="flex-grow overflow-y-auto mb-3 pr-2 flex flex-wrap gap-2 content-start scrollbar-thin scrollbar-thumb-gray-200">
                 {items.map((item, i) => (
-                  <div key={i} className="group relative">
-                    <span className="text-[11px] font-bold px-2 py-1 rounded-md border bg-gray-50 text-gray-600 border-gray-200">
-                      {typeof item === "object"
-                        ? `${item.name} (${item.type})`
-                        : item}
-                    </span>
+                  <div key={i} className="group relative flex items-center">
+                    {isVarList ? (
+                      <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-md pr-1 transition-all focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-100">
+                        <input
+                          type="text"
+                          value={item.name}
+                          onChange={(e) =>
+                            updateVariable(id, i, "name", e.target.value)
+                          }
+                          className="bg-transparent text-[11px] font-bold px-2 py-1 outline-none w-24 sm:w-32"
+                        />
+                        <select
+                          value={item.type}
+                          onChange={(e) =>
+                            updateVariable(id, i, "type", e.target.value)
+                          }
+                          className="text-[8px] font-black uppercase bg-white border border-gray-200 rounded px-1 py-0.5 outline-none"
+                        >
+                          <option value="boolean">Bool</option>
+                          <option value="number">Num</option>
+                        </select>
+
+                        <div className="h-4 w-px bg-gray-200 mx-1" />
+
+                        {/* Default Value Input */}
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[8px] font-black text-gray-400 uppercase">
+                            Start:
+                          </span>
+                          {item.type === "number" ? (
+                            <input
+                              type="number"
+                              value={item.defaultValue ?? 0}
+                              onChange={(e) =>
+                                updateVariable(
+                                  id,
+                                  i,
+                                  "defaultValue",
+                                  parseFloat(e.target.value) || 0,
+                                )
+                              }
+                              className="w-12 bg-white border border-gray-200 rounded text-[10px] font-bold px-1 outline-none"
+                            />
+                          ) : (
+                            <button
+                              onClick={() =>
+                                updateVariable(
+                                  id,
+                                  i,
+                                  "defaultValue",
+                                  !item.defaultValue,
+                                )
+                              }
+                              className={`px-2 py-0.5 rounded text-[8px] font-black uppercase transition-colors ${
+                                item.defaultValue
+                                  ? "bg-green-500 text-white"
+                                  : "bg-gray-300 text-white"
+                              }`}
+                            >
+                              {item.defaultValue ? "True" : "False"}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        value={item}
+                        onChange={(e) =>
+                          updateItemInList(id, i, e.target.value)
+                        }
+                        className="text-[11px] font-bold px-2 py-1 rounded-md border bg-gray-50 text-gray-600 border-gray-200 outline-none focus:bg-white focus:border-blue-400 transition-all"
+                      />
+                    )}
+
                     <button
                       onClick={() => removeItemFromList(id, i)}
-                      className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm z-10"
                     >
                       <X size={8} />
                     </button>
@@ -898,8 +972,8 @@ function ListsTab() {
                 ))}
               </div>
 
-              {/* Input area — pinned to bottom */}
-              <div className="space-y-2 pt-3 border-t shrink-0">
+              {/* Footer - Fixed at bottom via shrink-0 */}
+              <div className="space-y-2 pt-3 border-t border-gray-100 shrink-0 bg-white">
                 {isVarList && (
                   <div className="flex gap-1 p-0.5 bg-gray-100 rounded-md">
                     {["boolean", "number"].map((t) => (
@@ -922,15 +996,18 @@ function ListsTab() {
                 <div className="flex gap-1.5">
                   <input
                     className="flex-grow text-[11px] p-2 border rounded-lg outline-none bg-gray-50 focus:bg-white min-w-0"
-                    placeholder="Value…"
+                    placeholder={
+                      isVarList ? "Variable Name..." : "New Entry..."
+                    }
                     value={itemInputs[id] || ""}
                     onChange={(e) =>
                       setItemInputs({ ...itemInputs, [id]: e.target.value })
                     }
+                    onKeyDown={(e) => e.key === "Enter" && handleAction(id)}
                   />
                   <button
                     onClick={() => handleAction(id)}
-                    className="p-2 rounded-lg bg-blue-600 text-white shrink-0"
+                    className="p-2 rounded-lg bg-blue-600 text-white shrink-0 hover:bg-blue-700 transition-colors"
                   >
                     <Plus size={14} />
                   </button>
