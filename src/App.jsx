@@ -3,6 +3,7 @@ import { Settings } from "lucide-react"; // Added this import
 import MainFlow from "./components/MainFlow";
 import SettingsEditor from "./components/SettingsEditor";
 import GraphNavigator from "./components/GraphNavigator";
+import { ReactFlowProvider } from "reactflow";
 
 export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -20,7 +21,9 @@ export default function App() {
 
       {/* Main Workspace */}
       <main className="h-full w-full">
-        <MainFlow />
+        <ReactFlowProvider>
+          <MainFlow />
+        </ReactFlowProvider>
       </main>
 
       {/* Overlays */}

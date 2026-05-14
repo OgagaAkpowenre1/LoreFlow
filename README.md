@@ -559,3 +559,41 @@ If you change a variable name from gold_amount to player_gold in this list, any 
 
 For now: Just remember to update your logic nodes if you rename a variable.
 For later: We can add a "Refactor" function that searches all nodes and updates the check_flag automatically if a name changes.
+
+With the refactoring engine and the multi-graph infrastructure in place, you’ve crossed the most difficult technical hurdle. You now have a "Multi-Tenant" store that can handle a massive RPG script.
+
+To wrap up **Phase 2**, we have four "quality-of-life" and logic features left to ensure the system is production-ready.
+
+---
+
+### 1. Viewport Persistence (The "Memory" Feature)
+
+**The Problem:** Currently, when you switch from the "Tavern" graph to the "Blacksmith" graph, the camera probably resets to the center. If your Tavern nodes are way off to the right, you have to pan to find them every single time you switch back.
+**The Fix:** We need to store the `x, y, zoom` coordinates for **every graph individually**. When you switch back to a graph, the canvas should "teleport" exactly to where you last left it.
+
+### 2. Inter-Graph "Jump" Nodes (The "Glue")
+
+**The Problem:** How does the player move from the `Tavern_Intro` graph to the `Street_Walking` graph in your actual game?
+**The Fix:** We need a new node type: **Graph Jump**.
+
+* It has no dialogue.
+* Its only data is a dropdown list of **other graphs** in your project.
+* When Godot hits this node, it knows to unload the current JSON file and load the one specified in the jump.
+
+### 3. Graph Duplication
+
+**The Problem:** You’ve built a complex "Shopkeeper" logic with 20 nodes. You want the "Armor Smith" to behave exactly the same way but with different text.
+**The Fix:** A "Duplicate" button in the Navigator sidebar. It creates a deep copy of the `nodes` and `edges` arrays into a new graph key, saving hours of manual wiring.
+
+### 4. The "Start Graph" Designation
+
+**The Problem:** In your export, Godot sees 50 graphs. Which one is the very first one the player sees when they click "New Game"?
+**The Fix:** In the Project Navigator, we need a way to right-click a graph and "Set as Entry Point." This adds a `startGraph: "Graph_Name"` key to your global `metadata` export.
+
+---
+
+### Which one should we tackle first?
+
+I recommend starting with **Viewport Persistence**, as it makes the editor feel much more "expensive" and professional immediately. Or, if you're eager to see how the story connects, we can build the **Graph Jump Node**.
+
+**What's your priority?**

@@ -963,6 +963,22 @@ export const useLoreStore = create(
           alert("Error parsing the file. Is it valid JSON?");
         }
       },
+
+      // Add this to your store actions in store.js
+      onViewportChange: (viewport) => {
+        const { activeGraph, graphs } = get();
+        if (!graphs[activeGraph]) return;
+
+        set((state) => ({
+          graphs: {
+            ...state.graphs,
+            [activeGraph]: {
+              ...state.graphs[activeGraph],
+              viewport: viewport, // Saves { x, y, zoom }
+            },
+          },
+        }));
+      },
     }),
 
     // -------------------------------------------------------------------------
