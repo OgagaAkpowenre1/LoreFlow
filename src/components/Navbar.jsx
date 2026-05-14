@@ -77,7 +77,7 @@ export default function Navbar() {
           </button>
 
           <button
-            onClick={() => groupSelectedNodes("Chapter 1", "#eff6ff")}
+            onClick={() => groupSelectedNodes()}
             className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700"
           >
             <Layers size={18} /> Group Selected

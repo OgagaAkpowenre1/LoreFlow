@@ -13,7 +13,7 @@ const nodeTypes = {
   scene: SceneNode,
   logic: LogicNode,
   collection: CollectionNode,
-  start: StartNode
+  start: StartNode,
 };
 
 const edgeTypes = {
@@ -23,14 +23,18 @@ const edgeTypes = {
 export default function MainFlow() {
   // Pull EVERYTHING from the store
   const {
-    nodes,
-    edges,
     onNodesChange,
     onEdgesChange,
     onConnect,
     editingNodeId, // Pull this
     setEditingNode,
+    graphs,
+    activeGraph
   } = useLoreStore();
+
+  // Pull the current data dynamically
+  const nodes = graphs[activeGraph]?.nodes || [];
+  const edges = graphs[activeGraph]?.edges || [];
 
   // Find the selected node for the inspector
   const selectedNode = nodes.find((n) => n.id === editingNodeId);

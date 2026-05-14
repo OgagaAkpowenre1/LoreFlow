@@ -2,17 +2,30 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { addEdge, applyNodeChanges, applyEdgeChanges } from "reactflow";
 
-const getAbsolutePos = (node, nodes, depth=0) => {
-  // Safety break: if we go deeper than 5 levels, something is wrong
+// ---------------------------------------------------------------------------
+// UTILS
+// ---------------------------------------------------------------------------
+
+const getAbsolutePos = (node, nodes, depth = 0) => {
   if (!node.parentId || depth > 5) return node.position;
   const parent = nodes.find((n) => n.id === node.parentId);
   if (!parent) return node.position;
-  const parentPos = getAbsolutePos(parent, nodes, depth+1);
+  const parentPos = getAbsolutePos(parent, nodes, depth + 1);
   return {
     x: node.position.x + parentPos.x,
     y: node.position.y + parentPos.y,
   };
-};;
+};
+
+const createEmptyGraph = () => ({
+  nodes: [],
+  edges: [],
+  viewport: { x: 0, y: 0, zoom: 1 },
+});
+
+// ---------------------------------------------------------------------------
+// CONSTANTS
+// ---------------------------------------------------------------------------
 
 export const ALLOWED_TYPES = [
   { id: "text", label: "Text" },
@@ -23,11 +36,30 @@ export const ALLOWED_TYPES = [
   { id: "choice_list", label: "Player Choices" },
 ];
 
+// ---------------------------------------------------------------------------
+// STORE
+// ---------------------------------------------------------------------------
+
 export const useLoreStore = create(
   persist(
     (set, get) => ({
-      // --- 1. THE SCHEMA (The Blueprint) ---
-      // This defines what inputs appear in your sidebar
+      // -----------------------------------------------------------------------
+      // GLOBAL STATE
+      // -----------------------------------------------------------------------
+
+      projectName: "Untitled Lore",
+      activeGraph: "Main Story",
+
+      graphs: {
+        "Main Story": createEmptyGraph(),
+      },
+
+      // Legacy holders kept only for migration
+      nodes: [],
+      edges: [],
+
+      editingNodeId: null,
+
       schema: {
         nodeFields: [
           { id: "title", label: "Scene Title", type: "text" },
@@ -37,17 +69,16 @@ export const useLoreStore = create(
             type: "list",
             listId: "backgrounds",
           },
-          { id: "flags", label: "Scene Flags", type: "flag_group" }, // New Type
+          { id: "flags", label: "Scene Flags", type: "flag_group" },
           {
             id: "music",
             label: "BGM Track",
             type: "list",
             listId: "music_tracks",
           },
-          { id: "dialogueLines", label: "Dialogue Sequence", type: "sequence" }, // Nested Sequence
+          { id: "dialogueLines", label: "Dialogue Sequence", type: "sequence" },
           { id: "choices", label: "Branching Choices", type: "choice_list" },
         ],
-
         sequenceFields: [
           {
             id: "speaker",
@@ -64,8 +95,6 @@ export const useLoreStore = create(
           },
           { id: "sound", label: "SFX", type: "list", listId: "sfx_list" },
         ],
-
-        // Logic-Specific Fields
         logicFields: [
           {
             id: "check_flag",
@@ -83,15 +112,13 @@ export const useLoreStore = create(
         ],
       },
 
-      // --- 2. PREDEFINED LISTS ---
-      // The "Source of Truth" for your dropdowns
       listMetadata: {
         characters: "string",
         backgrounds: "string",
         music_tracks: "string",
         expressions: "string",
         sfx_list: "string",
-        variables: "variable", // The base non-deletable list
+        variables: "variable",
         operators: "string",
       },
 
@@ -102,146 +129,507 @@ export const useLoreStore = create(
         expressions: ["Neutral", "Happy", "Angry", "Surprised"],
         sfx_list: ["Door_Creek", "Sword_Clash", "Gold_Coins"],
         variables: [
-          { name: "game_started", type: "boolean" },
-          { name: "gold_amount", type: "number" },
-          { name: "has_key", type: "boolean" },
+          { name: "game_started", type: "boolean", defaultValue: false },
+          { name: "gold_amount", type: "number", defaultValue: 0 },
         ],
         operators: ["==", "!=", ">", "<", ">=", "<="],
       },
 
-      projectName: "Untitled Lore",
+      // -----------------------------------------------------------------------
+      // HELPERS
+      // -----------------------------------------------------------------------
 
-      // --- 3. REACT FLOW DATA (TEST CASE) ---
-      nodes: [
-        {
-          id: "1",
-          type: "scene", // Your Scene Node
-          position: { x: 200, y: 50 },
-          data: {
-            title: "The Bridge Guard",
-            dialogueLines: [
-              {
-                speaker: "Guard",
-                text: "Halt! Show me your royal pass or turn back.",
-              },
-            ],
-            choices: [
-              { id: "choice_show_pass", text: "Show Pass" },
-              { id: "choice_bribe", text: "Offer 50 Gold" },
-            ],
-            flags: [],
-          },
-        },
-        {
-          id: "2",
-          type: "logic", // Your Logic Node (Diamond)
-          position: { x: 100, y: 250 },
-          data: {
-            check_flag: "has_royal_pass",
-            operator: "==",
-            value: "true",
-          },
-        },
-        {
-          id: "3",
-          type: "scene",
-          position: { x: -100, y: 450 },
-          data: {
-            title: "Entry Granted",
-            dialogueLines: [
-              {
-                speaker: "Guard",
-                text: "Everything is in order. Pass through.",
-              },
-            ],
-            choices: [],
-            flags: [],
-          },
-        },
-        {
-          id: "4",
-          type: "scene",
-          position: { x: 300, y: 450 },
-          data: {
-            title: "Caught in a Lie",
-            dialogueLines: [
-              {
-                speaker: "Guard",
-                text: "This is a forgery! Guards, seize them!",
-              },
-            ],
-            choices: [],
-            flags: [],
-          },
-        },
-        {
-          id: "5",
-          type: "scene",
-          position: { x: 500, y: 250 },
-          data: {
-            title: "Bribe Attempt",
-            dialogueLines: [
-              {
-                speaker: "Guard",
-                text: "I'm a man of honor, but... for 50 gold, I didn't see anything.",
-              },
-            ],
-            choices: [],
-            flags: [{ key: "gold_amount", value: -50 }],
-          },
-        },
-      ],
+      /** Returns all node IDs reachable downstream from nodeId via edges. */
+      getConnectedDescendants: (nodeId) => {
+        const { activeGraph, graphs } = get();
+        const { edges } = graphs[activeGraph];
+        const descendants = [];
+        const queue = [nodeId];
 
-      edges: [
-        // Scene 1 Choice -> Logic Node
-        {
-          id: "e1-2",
-          source: "1",
-          target: "2",
-          sourceHandle: "choice_show_pass",
-          label: "Show Pass",
-          animated: true,
-          style: { stroke: "#3b82f6", strokeWidth: 2 },
-        },
-        // Scene 1 Choice -> Scene 5 (Direct Bribe)
-        {
-          id: "e1-5",
-          source: "1",
-          target: "5",
-          sourceHandle: "choice_bribe",
-          label: "Offer 50 Gold",
-          animated: true,
-          style: { stroke: "#3b82f6", strokeWidth: 2 },
-        },
-        // Logic TRUE Path -> Scene 3
-        {
-          id: "e2-3",
-          source: "2",
-          target: "3",
-          sourceHandle: "true",
-          label: "TRUE",
-          animated: true,
-          style: { stroke: "#22c55e", strokeWidth: 2 },
-        },
-        // Logic FALSE Path -> Scene 4
-        {
-          id: "e2-4",
-          source: "2",
-          target: "4",
-          sourceHandle: "false",
-          label: "FALSE",
-          animated: true,
-          style: { stroke: "#ef4444", strokeWidth: 2 },
-        },
-      ],
+        while (queue.length > 0) {
+          const currentId = queue.shift();
+          edges
+            .filter((e) => e.source === currentId)
+            .map((e) => e.target)
+            .forEach((childId) => {
+              if (!descendants.includes(childId)) {
+                descendants.push(childId);
+                queue.push(childId);
+              }
+            });
+        }
+        return descendants;
+      },
 
-      // --- 4. ACTIONS: SCHEMA & LISTS ---
+      // -----------------------------------------------------------------------
+      // PROJECT METADATA
+      // -----------------------------------------------------------------------
 
-      // Add a new option to a list (e.g., adding a new character name)
+      updateProjectName: (name) => set({ projectName: name }),
+
+      resetProject: () => {
+        if (!confirm("This will delete your entire map. Are you sure?")) return;
+        const { activeGraph } = get();
+        set((state) => ({
+          graphs: {
+            ...state.graphs,
+            [activeGraph]: createEmptyGraph(),
+          },
+          editingNodeId: null,
+        }));
+      },
+
+      // -----------------------------------------------------------------------
+      // GRAPH MANAGEMENT
+      // -----------------------------------------------------------------------
+
+      setActiveGraph: (name) => set({ activeGraph: name, editingNodeId: null }),
+
+      // Add this to your state
+      sidebarOpen: true,
+      toggleSidebar: () =>
+        set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+
+      addGraph: (name = "New Conversation") => {
+        const graphs = get().graphs;
+        let uniqueName = name;
+        let counter = 1;
+        while (graphs[uniqueName]) uniqueName = `${name} ${counter++}`;
+        set((state) => ({
+          graphs: { ...state.graphs, [uniqueName]: createEmptyGraph() },
+          activeGraph: uniqueName,
+        }));
+      },
+
+      renameGraph: (oldName, newName) => {
+        if (oldName === newName || !newName.trim()) return;
+        set((state) => {
+          const newGraphs = { ...state.graphs };
+          newGraphs[newName] = newGraphs[oldName];
+          delete newGraphs[oldName];
+          return {
+            graphs: newGraphs,
+            activeGraph:
+              state.activeGraph === oldName ? newName : state.activeGraph,
+          };
+        });
+      },
+
+      deleteGraph: (name) => {
+        const graphs = { ...get().graphs };
+        if (Object.keys(graphs).length <= 1) return;
+        delete graphs[name];
+        const nextGraph = Object.keys(graphs)[0];
+        set({ graphs, activeGraph: nextGraph, editingNodeId: null });
+      },
+
+      // -----------------------------------------------------------------------
+      // REACT FLOW — GRAPH-AWARE HANDLERS
+      // -----------------------------------------------------------------------
+
+      onNodesChange: (changes) => {
+        const { activeGraph, graphs } = get();
+        set({
+          graphs: {
+            ...graphs,
+            [activeGraph]: {
+              ...graphs[activeGraph],
+              nodes: applyNodeChanges(changes, graphs[activeGraph].nodes),
+            },
+          },
+        });
+      },
+
+      onEdgesChange: (changes) => {
+        const { activeGraph, graphs } = get();
+        set({
+          graphs: {
+            ...graphs,
+            [activeGraph]: {
+              ...graphs[activeGraph],
+              edges: applyEdgeChanges(changes, graphs[activeGraph].edges),
+            },
+          },
+        });
+      },
+
+      onConnect: (connection) => {
+        const { activeGraph, graphs } = get();
+        const currentGraph = graphs[activeGraph];
+        const sourceNode = currentGraph.nodes.find(
+          (n) => n.id === connection.source,
+        );
+
+        if (!sourceNode) return;
+
+        let edgeStyle = { strokeWidth: 2, stroke: "#3b82f6" };
+        let edgeLabel = "";
+        let animated = false;
+
+        if (sourceNode.type === "logic") {
+          animated = true;
+          if (connection.sourceHandle === "true") {
+            edgeStyle.stroke = "#22c55e";
+            edgeLabel = "TRUE";
+          } else {
+            edgeStyle.stroke = "#ef4444";
+            edgeLabel = "FALSE";
+          }
+        } else if (sourceNode.type === "scene" && sourceNode.data.choices) {
+          const choice = sourceNode.data.choices.find(
+            (c) => c.id === connection.sourceHandle,
+          );
+          if (choice) edgeLabel = choice.text;
+        }
+
+        const newEdge = {
+          ...connection,
+          id: `e-${crypto.randomUUID()}`, // Ensure unique ID
+          label: edgeLabel,
+          animated,
+          style: edgeStyle,
+          labelStyle: { fill: edgeStyle.stroke, fontWeight: 800, fontSize: 10 },
+          labelBgStyle: { fill: "#fff", fillOpacity: 0.9 },
+        };
+
+        set((state) => ({
+          graphs: {
+            ...state.graphs,
+            [activeGraph]: {
+              ...currentGraph,
+              edges: addEdge(newEdge, currentGraph.edges),
+            },
+          },
+        }));
+      },
+
+      // -----------------------------------------------------------------------
+      // NODE MANAGEMENT
+      // -----------------------------------------------------------------------
+
+      addNode: (type) => {
+        const { activeGraph } = get();
+        const id = crypto.randomUUID();
+
+        const defaultLogicData = {
+          logicalOperator: "AND",
+          conditions: [
+            {
+              id: crypto.randomUUID(),
+              check_flag: "",
+              operator: "==",
+              value: "true",
+            },
+          ],
+        };
+
+        const newNode = {
+          id,
+          type,
+          position: { x: 100, y: 100 },
+          zIndex: type === "collection" ? -10 : 10,
+          data:
+            type === "scene"
+              ? {
+                  title: "New Scene",
+                  dialogueLines: [],
+                  choices: [],
+                  flags: [],
+                }
+              : type === "logic"
+                ? defaultLogicData
+                : {},
+        };
+
+        set((state) => {
+          const currentNodes = state.graphs[activeGraph].nodes;
+          const filteredNodes =
+            type === "start"
+              ? currentNodes.filter((n) => n.type !== "start")
+              : currentNodes;
+          return {
+            graphs: {
+              ...state.graphs,
+              [activeGraph]: {
+                ...state.graphs[activeGraph],
+                nodes: [...filteredNodes, newNode],
+              },
+            },
+          };
+        });
+      },
+
+      /** Directly overwrite the node list for the active graph (useful for bulk operations). */
+      setNodes: (newNodes) => {
+        const { activeGraph } = get();
+        set((state) => ({
+          graphs: {
+            ...state.graphs,
+            [activeGraph]: { ...state.graphs[activeGraph], nodes: newNodes },
+          },
+        }));
+      },
+
+      updateNodeData: (nodeId, newData) => {
+        const { activeGraph, graphs } = get();
+        const currentGraph = graphs[activeGraph];
+        const oldNode = currentGraph.nodes.find((n) => n.id === nodeId);
+        let newEdges = [...currentGraph.edges];
+
+        if (oldNode?.type === "scene") {
+          const oldChoices = oldNode.data.choices || [];
+          const newChoices = newData.choices || [];
+
+          if (oldChoices.length === 0 && newChoices.length > 0) {
+            // Linear → branching: inherit the existing edge to the first choice
+            newEdges = newEdges.map((edge) =>
+              edge.source === nodeId &&
+              (!edge.sourceHandle || edge.sourceHandle === "default-output")
+                ? {
+                    ...edge,
+                    sourceHandle: newChoices[0].id,
+                    label: newChoices[0].text,
+                    style: { ...edge.style, stroke: "#3b82f6" },
+                  }
+                : edge,
+            );
+          } else if (oldChoices.length > 0 && newChoices.length === 0) {
+            // Branching → linear: reset handles
+            newEdges = newEdges.map((edge) =>
+              edge.source === nodeId
+                ? {
+                    ...edge,
+                    sourceHandle: "default-output",
+                    label: "",
+                    style: { ...edge.style, stroke: "#9ca3af" },
+                  }
+                : edge,
+            );
+          } else {
+            // Live label sync
+            newEdges = newEdges.map((edge) => {
+              if (edge.source === nodeId) {
+                const match = newChoices.find(
+                  (c) => c.id === edge.sourceHandle,
+                );
+                if (match && edge.label !== match.text)
+                  return { ...edge, label: match.text };
+              }
+              return edge;
+            });
+          }
+        }
+
+        set((state) => ({
+          graphs: {
+            ...state.graphs,
+            [activeGraph]: {
+              ...currentGraph,
+              nodes: currentGraph.nodes.map((n) =>
+                n.id === nodeId ? { ...n, data: newData } : n,
+              ),
+              edges: newEdges,
+            },
+          },
+        }));
+      },
+
+      deleteNode: (nodeId) => {
+        const { activeGraph, graphs } = get();
+        const currentGraph = graphs[activeGraph];
+        const nodeToDelete = currentGraph.nodes.find((n) => n.id === nodeId);
+
+        if (nodeToDelete?.type === "collection") {
+          const children = currentGraph.nodes.filter(
+            (n) => n.parentId === nodeId,
+          );
+          const deleteContent =
+            children.length > 0
+              ? window.confirm(
+                  "This collection contains nodes. Delete its contents too?\n\nOK = delete everything  |  Cancel = keep nodes, remove group",
+                )
+              : false;
+
+          set((state) => {
+            let nextNodes;
+            if (!deleteContent) {
+              // Detach children, restore absolute positions
+              nextNodes = currentGraph.nodes
+                .filter((n) => n.id !== nodeId)
+                .map((n) =>
+                  n.parentId === nodeId
+                    ? {
+                        ...n,
+                        parentId: undefined,
+                        extent: undefined,
+                        position: {
+                          x: n.position.x + nodeToDelete.position.x,
+                          y: n.position.y + nodeToDelete.position.y,
+                        },
+                      }
+                    : n,
+                );
+            } else {
+              const childIds = children.map((c) => c.id);
+              nextNodes = currentGraph.nodes.filter(
+                (n) => n.id !== nodeId && !childIds.includes(n.id),
+              );
+            }
+
+            return {
+              graphs: {
+                ...state.graphs,
+                [activeGraph]: {
+                  ...currentGraph,
+                  nodes: nextNodes,
+                  edges: currentGraph.edges.filter(
+                    (e) => e.source !== nodeId && e.target !== nodeId,
+                  ),
+                },
+              },
+              editingNodeId:
+                state.editingNodeId === nodeId ? null : state.editingNodeId,
+            };
+          });
+          return;
+        }
+
+        // Standard delete
+        set((state) => ({
+          graphs: {
+            ...state.graphs,
+            [activeGraph]: {
+              ...currentGraph,
+              nodes: currentGraph.nodes.filter((n) => n.id !== nodeId),
+              edges: currentGraph.edges.filter(
+                (e) => e.source !== nodeId && e.target !== nodeId,
+              ),
+            },
+          },
+          editingNodeId:
+            state.editingNodeId === nodeId ? null : state.editingNodeId,
+        }));
+      },
+
+      deleteEdge: (edgeId) => {
+        const { activeGraph, graphs } = get();
+        const currentGraph = graphs[activeGraph];
+        set((state) => ({
+          graphs: {
+            ...state.graphs,
+            [activeGraph]: {
+              ...currentGraph,
+              edges: currentGraph.edges.filter((e) => e.id !== edgeId),
+            },
+          },
+        }));
+      },
+
+      setEditingNode: (id) => set({ editingNodeId: id }),
+
+      // -----------------------------------------------------------------------
+      // LOGIC NODE CONDITIONS
+      // -----------------------------------------------------------------------
+
+      addConditionToLogic: (nodeId) => {
+        const { activeGraph } = get();
+        set((state) => ({
+          graphs: {
+            ...state.graphs,
+            [activeGraph]: {
+              ...state.graphs[activeGraph],
+              nodes: state.graphs[activeGraph].nodes.map((n) =>
+                n.id === nodeId
+                  ? {
+                      ...n,
+                      data: {
+                        ...n.data,
+                        conditions: [
+                          ...(n.data.conditions || []),
+                          {
+                            id: crypto.randomUUID(),
+                            check_flag: "",
+                            operator: "==",
+                            value: "true",
+                          },
+                        ],
+                      },
+                    }
+                  : n,
+              ),
+            },
+          },
+        }));
+      },
+
+      removeConditionFromLogic: (nodeId, conditionId) => {
+        const { activeGraph } = get();
+        set((state) => ({
+          graphs: {
+            ...state.graphs,
+            [activeGraph]: {
+              ...state.graphs[activeGraph],
+              nodes: state.graphs[activeGraph].nodes.map((n) =>
+                n.id === nodeId
+                  ? {
+                      ...n,
+                      data: {
+                        ...n.data,
+                        conditions: (n.data.conditions || []).filter(
+                          (c) => c.id !== conditionId,
+                        ),
+                      },
+                    }
+                  : n,
+              ),
+            },
+          },
+        }));
+      },
+
+      // -----------------------------------------------------------------------
+      // SCHEMA MANAGEMENT
+      // -----------------------------------------------------------------------
+
+      addFieldToSchema: (target, newField) =>
+        set((state) => ({
+          schema: {
+            ...state.schema,
+            [target]: [...state.schema[target], newField],
+          },
+        })),
+
+      removeFieldFromSchema: (target, fieldId) =>
+        set((state) => ({
+          schema: {
+            ...state.schema,
+            [target]: state.schema[target].filter((f) => f.id !== fieldId),
+          },
+        })),
+
+      // -----------------------------------------------------------------------
+      // LIST MANAGEMENT
+      // -----------------------------------------------------------------------
+
+      createNewList: (id, type, initialItems = []) =>
+        set((state) => ({
+          listMetadata: { ...state.listMetadata, [id]: type },
+          lists: { ...state.lists, [id]: initialItems },
+        })),
+
+      deleteList: (listId) =>
+        set((state) => {
+          if (listId === "variables") return state; // Protected list
+          const newLists = { ...state.lists };
+          const newMeta = { ...state.listMetadata };
+          delete newLists[listId];
+          delete newMeta[listId];
+          return { lists: newLists, listMetadata: newMeta };
+        }),
+
       addToList: (listId, newItem) =>
         set((state) => {
           let finalItem = newItem;
-          // If adding a variable, ensure it has a type-safe default value
           if (
             state.listMetadata[listId] === "variable" &&
             typeof newItem === "object"
@@ -259,172 +647,6 @@ export const useLoreStore = create(
           };
         }),
 
-      // Add a brand new field to the UI (e.g., adding "Camera Shake" to dialogue lines)
-      addFieldToSchema: (target, newField) =>
-        set((state) => ({
-          schema: {
-            ...state.schema,
-            [target]: [...state.schema[target], newField],
-          },
-        })),
-
-      // --- 5. ACTIONS: REACT FLOW HANDLERS ---
-
-      onNodesChange: (changes) => {
-        set({
-          nodes: applyNodeChanges(changes, get().nodes),
-        });
-      },
-      onEdgesChange: (changes) => {
-        set({
-          edges: applyEdgeChanges(changes, get().edges),
-        });
-      },
-
-      onConnect: (connection) => {
-        const { nodes, edges } = get();
-        const sourceNode = nodes.find((n) => n.id === connection.source);
-
-        if (!sourceNode) return;
-
-        let edgeStyle = { strokeWidth: 2, stroke: "#3b82f6" }; // Default Blue
-        let edgeLabel = "";
-        let animated = false;
-
-        // 1. Logic Node Connection
-        if (sourceNode.type === "logic") {
-          animated = true;
-          if (connection.sourceHandle === "true") {
-            edgeStyle.stroke = "#22c55e"; // Green
-            edgeLabel = "TRUE";
-          } else if (connection.sourceHandle === "false") {
-            edgeStyle.stroke = "#ef4444"; // Red
-            edgeLabel = "FALSE";
-          }
-        }
-        // 2. Scene Node Connection
-        else if (sourceNode.type === "scene" && sourceNode.data.choices) {
-          const choice = sourceNode.data.choices.find(
-            (c) => c.id === connection.sourceHandle,
-          );
-          if (choice) edgeLabel = choice.text;
-        }
-
-        const newEdge = {
-          ...connection,
-          label: edgeLabel,
-          animated: animated,
-          type: "default",
-          style: edgeStyle,
-          labelStyle: { fill: edgeStyle.stroke, fontWeight: 800, fontSize: 10 },
-          labelBgStyle: { fill: "#fff", fillOpacity: 0.9 },
-        };
-
-        set({ edges: addEdge(newEdge, edges) });
-      },
-
-      updateNodeData: (nodeId, newData) => {
-        set((state) => {
-          const oldNode = state.nodes.find((n) => n.id === nodeId);
-          let newEdges = [...state.edges]; // Start with a copy of existing edges
-
-          if (oldNode && oldNode.type === "scene") {
-            const oldChoices = oldNode.data.choices || [];
-            const newChoices = newData.choices || [];
-
-            // --- CASE A: Handle Inheritance (0 to 1+ choices) ---
-            if (oldChoices.length === 0 && newChoices.length > 0) {
-              const firstChoice = newChoices[0];
-              newEdges = newEdges.map((edge) => {
-                if (
-                  edge.source === nodeId &&
-                  (!edge.sourceHandle || edge.sourceHandle === "default-output")
-                ) {
-                  return {
-                    ...edge,
-                    sourceHandle: firstChoice.id,
-                    label: firstChoice.text,
-                    style: { ...edge.style, stroke: "#3b82f6" },
-                  };
-                }
-                return edge;
-              });
-            }
-
-            // --- CASE B: Reverting to Linear (Choices to 0) ---
-            else if (oldChoices.length > 0 && newChoices.length === 0) {
-              newEdges = newEdges.map((edge) => {
-                if (edge.source === nodeId) {
-                  return {
-                    ...edge,
-                    sourceHandle: "default-output",
-                    label: "",
-                    style: { ...edge.style, stroke: "#9ca3af" },
-                  };
-                }
-                return edge;
-              });
-            }
-
-            // --- CASE C: LIVE LABEL SYNC (Updating existing choice text) ---
-            // This is what was missing!
-            else {
-              newEdges = newEdges.map((edge) => {
-                if (edge.source === nodeId) {
-                  // Find the choice object that matches this line's handle
-                  const matchingChoice = newChoices.find(
-                    (c) => c.id === edge.sourceHandle,
-                  );
-                  if (matchingChoice && edge.label !== matchingChoice.text) {
-                    return {
-                      ...edge,
-                      label: matchingChoice.text,
-                    };
-                  }
-                }
-                return edge;
-              });
-            }
-          }
-
-          return {
-            nodes: state.nodes.map((node) =>
-              node.id === nodeId ? { ...node, data: newData } : node,
-            ),
-            edges: newEdges,
-          };
-        });
-      },
-
-      // --- NEW ACTIONS FOR SETTINGS ---
-
-      // Remove a field from the schema (e.g., deciding you don't need 'BGM Track' anymore)
-      removeFieldFromSchema: (target, fieldId) =>
-        set((state) => ({
-          schema: {
-            ...state.schema,
-            [target]: state.schema[target].filter((f) => f.id !== fieldId),
-          },
-        })),
-
-      createNewList: (id, type, initialItems) => {
-        set((state) => ({
-          listMetadata: { ...state.listMetadata, [id]: type },
-          lists: { ...state.lists, [id]: initialItems },
-        }));
-      },
-
-      deleteList: (listId) =>
-        set((state) => {
-          if (listId === "variables") return state; // Protection
-          const newLists = { ...state.lists };
-          const newMeta = { ...state.listMetadata };
-          delete newLists[listId];
-          delete newMeta[listId];
-          return { lists: newLists, listMetadata: newMeta };
-        }),
-
-      // Remove a specific item from a list
       removeItemFromList: (listId, index) =>
         set((state) => ({
           lists: {
@@ -433,508 +655,100 @@ export const useLoreStore = create(
           },
         })),
 
-      // Update a specific item in a list
-      // updateItemInList: (listId, index, newValue) =>
-      //   set((state) => {
-      //     const newList = [...state.lists[listId]];
-      //     newList[index] = newValue;
-      //     return {
-      //       lists: { ...state.lists, [listId]: newList },
-      //     };
-      //   }),
-
-      // Inside useLoreStore actions:
-
-      updateItemInList: (listId, index, newValue) => {
+      updateItemInList: (listId, index, newValue) =>
         set((state) => {
           const newList = [...(state.lists[listId] || [])];
-          // If it's a string list, newValue is a string.
-          // If it's a variable list, newValue is the updated object.
           newList[index] = newValue;
-
-          return {
-            lists: { ...state.lists, [listId]: newList },
-          };
-        });
-      },
-
-      // A specialized action for variables to keep the code clean
-      // updateVariable: (listId, index, field, value) => {
-      //   set((state) => {
-      //     const newList = [...(state.lists[listId] || [])];
-      //     const updatedVar = { ...newList[index], [field]: value };
-
-      //     // If renaming, we might want to default the value to match the type
-      //     if (field === "type") {
-      //       updatedVar.default = value === "number" ? 0 : false;
-      //     }
-
-      //     newList[index] = updatedVar;
-      //     return {
-      //       lists: { ...state.lists, [listId]: newList },
-      //     };
-      //   });
-      // },
+          return { lists: { ...state.lists, [listId]: newList } };
+        }),
 
       updateVariable: (listId, index, field, value) => {
         set((state) => {
           const newList = [...(state.lists[listId] || [])];
-          const updatedVar = { ...newList[index], [field]: value };
+          const oldVar = newList[index];
+          const newVarName = field === "name" ? value : oldVar.name;
+          const oldVarName = oldVar.name;
 
-          // If the type changes, we MUST reset the defaultValue to be type-safe
-          if (field === "type") {
+          // 1. Update the variable in the list
+          const updatedVar = { ...oldVar, [field]: value };
+          if (field === "type")
             updatedVar.defaultValue = value === "number" ? 0 : false;
-          }
-
           newList[index] = updatedVar;
-          return { lists: { ...state.lists, [listId]: newList } };
-        });
-      },
 
-      editingNodeId: null, // New property
+          // 2. REFACTOR ENGINE: If name changed, update all graphs
+          let updatedGraphs = { ...state.graphs };
 
-      setEditingNode: (id) => set({ editingNodeId: id }),
+          if (field === "name" && oldVarName !== newVarName) {
+            Object.keys(updatedGraphs).forEach((graphKey) => {
+              const graph = updatedGraphs[graphKey];
 
-      // --- NODE MANAGEMENT ACTIONS ---
-
-      addNode: (type) => {
-        const id = crypto.randomUUID();
-
-        // Logic default data now uses a 'conditions' array
-        const defaultLogicData = {
-          logicalOperator: "AND", // "AND" or "OR"
-          conditions: [
-            {
-              id: crypto.randomUUID(),
-              check_flag: "",
-              operator: "==",
-              value: "true",
-            },
-          ],
-        };
-
-        const newNode = {
-          id,
-          type,
-          position: { x: Math.random() * 400, y: Math.random() * 400 },
-          zIndex: type === "collection" ? -10 : 10, // Ensure standard nodes are always on top
-          data:
-            type === "scene"
-              ? {
-                  title: "New Scene",
-                  dialogueLines: [],
-                  choices: [],
-                  flags: [],
-                }
-              : type === "logic"
-                ? defaultLogicData
-                : {}, // Start node needs no data
-        };
-
-        set((state) => {
-          // RULE: Only one start node allowed. If adding start, remove any existing one.
-          if (type === "start") {
-            return {
-              nodes: [
-                ...state.nodes.filter((n) => n.type !== "start"),
-                newNode,
-              ],
-            };
-          }
-          return { nodes: [...state.nodes, newNode] };
-        });
-      },
-
-      // deleteNode: (nodeId) => {
-      //   const { nodes, edges, removeFromGroup } = get();
-      //   const nodeToDelete = nodes.find((n) => n.id === nodeId);
-
-      //   if (nodeToDelete?.type === "collection") {
-      //     const children = nodes.filter((n) => n.parentId === nodeId);
-
-      //     if (children.length > 0) {
-      //       const deleteContent = window.confirm(
-      //         "This collection contains nodes. Do you want to delete the nodes inside as well?\n\n" +
-      //           "OK: Delete everything\n" +
-      //           "Cancel: Keep nodes but remove them from group",
-      //       );
-
-      //       if (!deleteContent) {
-      //         // UNGROUP THEM FIRST to prevent the crash
-      //         children.forEach((child) => removeFromGroup(child.id));
-      //       } else {
-      //         // Delete children IDs and their edges
-      //         const childIds = children.map((c) => c.id);
-      //         set((state) => ({
-      //           nodes: state.nodes.filter(
-      //             (n) => n.id !== nodeId && !childIds.includes(n.id),
-      //           ),
-      //           edges: state.edges.filter(
-      //             (e) =>
-      //               !childIds.includes(e.source) &&
-      //               !childIds.includes(e.target) &&
-      //               e.source !== nodeId &&
-      //               e.target !== nodeId,
-      //           ),
-      //         }));
-      //         return; // Exit early as we've handled the set()
-      //       }
-      //     }
-      //   }
-
-      //   // Standard delete logic
-      //   set((state) => ({
-      //     nodes: state.nodes.filter((n) => n.id !== nodeId),
-      //     edges: state.edges.filter(
-      //       (e) => e.source !== nodeId && e.target !== nodeId,
-      //     ),
-      //     editingNodeId:
-      //       state.editingNodeId === nodeId ? null : state.editingNodeId,
-      //   }));
-      // },
-
-      deleteNode: (nodeId) => {
-        const { nodes, edges } = get();
-        const nodeToDelete = nodes.find((n) => n.id === nodeId);
-
-        // 1. Handle Collection Deletion Logic
-        if (nodeToDelete?.type === "collection") {
-          const children = nodes.filter((n) => n.parentId === nodeId);
-
-          if (children.length > 0) {
-            const deleteContent = window.confirm(
-              "This collection contains nodes. Do you want to delete the nodes inside as well?\n\n" +
-                "OK: Delete everything\n" +
-                "Cancel: Keep nodes but remove them from group",
-            );
-
-            if (!deleteContent) {
-              // --- SCENARIO: KEEP CHILDREN, DELETE BOX ---
-              set((state) => {
-                const updatedNodes = state.nodes
-                  .filter((n) => n.id !== nodeId) // Remove the collection node
-                  .map((node) => {
-                    if (node.parentId === nodeId) {
-                      // Find parent's position to calculate absolute coordinates
-                      const parent = state.nodes.find((n) => n.id === nodeId);
-                      return {
-                        ...node,
-                        parentId: undefined,
-                        extent: undefined,
-                        position: {
-                          x: node.position.x + (parent?.position.x || 0),
-                          y: node.position.y + (parent?.position.y || 0),
-                        },
-                      };
-                    }
-                    return node;
-                  });
-
-                return {
-                  nodes: updatedNodes,
-                  edges: state.edges.filter(
-                    (e) => e.source !== nodeId && e.target !== nodeId,
-                  ),
-                  editingNodeId:
-                    state.editingNodeId === nodeId ? null : state.editingNodeId,
-                };
-              });
-              return; // Exit here, state is updated
-            } else {
-              // --- SCENARIO: DELETE EVERYTHING ---
-              const childIds = children.map((c) => c.id);
-              set((state) => ({
-                nodes: state.nodes.filter(
-                  (n) => n.id !== nodeId && !childIds.includes(n.id),
-                ),
-                edges: state.edges.filter(
-                  (e) =>
-                    !childIds.includes(e.source) &&
-                    !childIds.includes(e.target) &&
-                    e.source !== nodeId &&
-                    e.target !== nodeId,
-                ),
-                editingNodeId:
-                  state.editingNodeId === nodeId ||
-                  childIds.includes(state.editingNodeId)
-                    ? null
-                    : state.editingNodeId,
-              }));
-              return; // Exit here
-            }
-          }
-        }
-
-        // 2. Standard Delete Logic (for Scene/Logic/Start nodes)
-        set((state) => ({
-          nodes: state.nodes.filter((n) => n.id !== nodeId),
-          edges: state.edges.filter(
-            (e) => e.source !== nodeId && e.target !== nodeId,
-          ),
-          editingNodeId:
-            state.editingNodeId === nodeId ? null : state.editingNodeId,
-        }));
-      },
-
-      // Add this near your other node actions (like addNode, deleteNode)
-      setNodes: (newNodes) => set({ nodes: newNodes }),
-
-      // exportGameData: () => {
-      //   const { nodes, edges, lists, schema } = get();
-
-      //   const processNode = (node) => {
-      //     const nextMap = {};
-      //     edges
-      //       .filter((e) => e.source === node.id)
-      //       .forEach((e) => {
-      //         // --- NORMALIZATION LOGIC ---
-      //         // If it's a linear output (null, undefined, or 'default-output'),
-      //         // we always name the key "next" for the engine.
-      //         const key =
-      //           !e.sourceHandle || e.sourceHandle === "default-output"
-      //             ? "next"
-      //             : e.sourceHandle;
-
-      //         nextMap[key] = e.target;
-      //       });
-
-      //     return {
-      //       id: node.id,
-      //       type: node.type,
-      //       // collectionId: node.parentId || null, // Export the group ownership
-      //       data: node.data,
-      //       next: nextMap, // The clean navigation map
-      //     };
-      //   };
-
-      //   const exportBundle = {
-      //     metadata: { exportedAt: new Date().toISOString() },
-      //     // The "Registry" handles your global data
-      //     registry: {
-      //       // All items from your Global Lists (Characters, Locations, etc.)
-      //       lists: lists,
-      //       // We can also export the Schema if the engine needs to know
-      //       // what "types" of data to expect (e.g., 'flag_group')
-      //       definitions: {
-      //         nodeFields: schema.nodeFields.map((f) => ({
-      //           id: f.id,
-      //           type: f.type,
-      //         })),
-      //         logicFields: schema.logicFields.map((f) => ({
-      //           id: f.id,
-      //           type: f.type,
-      //         })),
-      //       },
-      //     },
-      //     variables: lists.variables || [],
-      //     scenes: nodes.filter((n) => n.type === "scene").map(processNode),
-      //     logic: nodes.filter((n) => n.type === "logic").map(processNode),
-      //   };
-
-      //   // 3. Trigger Download
-      //   const blob = new Blob([JSON.stringify(exportBundle, null, 2)], {
-      //     type: "application/json",
-      //   });
-      //   const url = URL.createObjectURL(blob);
-      //   const link = document.createElement("a");
-      //   link.href = url;
-      //   const fileName = get()
-      //     .projectName.replace(/[^a-z0-9]/gi, "_")
-      //     .toLowerCase();
-      //   link.download = `${fileName}_project.json`; // or .json
-      //   // link.download = `narrative_export_${Date.now()}.json`;
-      //   document.body.appendChild(link);
-      //   link.click();
-      //   document.body.removeChild(link);
-      // },
-
-      exportGameData: () => {
-        const { nodes, edges, lists, schema, projectName } = get();
-
-        // 1. Find the actual Start Node component
-        const startNode = nodes.find((n) => n.type === "start");
-
-        // 2. Find the edge connected to it to see where it's pointing
-        const startEdge = edges.find((e) => e.source === startNode?.id);
-
-        // 3. The "Entry Point" is the ID of the FIRST playable node (Scene or Logic)
-        const entryPointId = startEdge ? startEdge.target : null;
-
-        const processNode = (node) => {
-          const nextMap = {};
-          edges
-            .filter((e) => e.source === node.id)
-            .forEach((e) => {
-              // --- NORMALIZATION ---
-              // Converts "default-output" or null handles to "next" for the engine
-              const key =
-                !e.sourceHandle || e.sourceHandle === "default-output"
-                  ? "next"
-                  : e.sourceHandle;
-
-              nextMap[key] = e.target;
+              updatedGraphs[graphKey] = {
+                ...graph,
+                nodes: graph.nodes.map((node) => {
+                  // A. Update Logic Nodes
+                  if (node.type === "logic" && node.data.conditions) {
+                    return {
+                      ...node,
+                      data: {
+                        ...node.data,
+                        conditions: node.data.conditions.map((cond) =>
+                          cond.check_flag === oldVarName
+                            ? { ...cond, check_flag: newVarName }
+                            : cond,
+                        ),
+                      },
+                    };
+                  }
+                  // B. Update Scene Nodes (Flags)
+                  if (node.type === "scene" && node.data.flags) {
+                    return {
+                      ...node,
+                      data: {
+                        ...node.data,
+                        flags: node.data.flags.map((f) =>
+                          f.key === oldVarName ? { ...f, key: newVarName } : f,
+                        ),
+                      },
+                    };
+                  }
+                  return node;
+                }),
+              };
             });
+          }
 
           return {
-            id: node.id,
-            type: node.type,
-            data: node.data,
-            next: nextMap,
+            lists: { ...state.lists, [listId]: newList },
+            graphs: updatedGraphs,
           };
-        };
-
-        const exportBundle = {
-          metadata: {
-            projectName,
-            exportedAt: new Date().toISOString(),
-            version: "2.0", // Incremented version for the new structure
-          },
-
-          // The "Registry" handles your global definitions
-          registry: {
-            lists: lists,
-            // Definitions tell the engine what fields exist in the UI
-            definitions: {
-              nodeFields: schema.nodeFields.map((f) => ({
-                id: f.id,
-                type: f.type,
-              })),
-              sequenceFields: schema.sequenceFields.map((f) => ({
-                id: f.id,
-                type: f.type,
-              })),
-            },
-          },
-
-          // Top-level arrays for easy parsing in Godot
-          startNode: entryPointId,
-          scenes: nodes.filter((n) => n.type === "scene").map(processNode),
-          logic: nodes.filter((n) => n.type === "logic").map(processNode),
-        };
-
-        // --- Download Trigger ---
-        const blob = new Blob([JSON.stringify(exportBundle, null, 2)], {
-          type: "application/json",
         });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-
-        const fileName = projectName.replace(/[^a-z0-9]/gi, "_").toLowerCase();
-        link.download = `${fileName}_export.json`;
-
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
       },
 
-      resetProject: () => {
-        if (confirm("This will delete your entire map. Are you sure?")) {
-          set({
-            nodes: [],
-            edges: [],
-            // You could also reset the schema/lists if you want a true factory reset
-          });
-        }
-      },
-
-      // Inside useLoreStore
-      exportProject: () => {
-        const { nodes, edges, lists, schema, projectName } = get();
-        const fileName = projectName.toLowerCase().replace(/\s+/g, "_");
-
-        // The Project file includes EVERYTHING (positions, handles, types)
-        const projectData = {
-          type: "LORE_PROJECT_FILE",
-          version: "1.0.0",
-          nodes,
-          edges,
-          lists,
-          schema,
-          projectName,
-        };
-
-        const blob = new Blob([JSON.stringify(projectData, null, 2)], {
-          type: "application/json",
-        });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `${fileName}.lore`;
-        link.click();
-      },
-
-      importProject: (jsonData) => {
-        try {
-          const data = JSON.parse(jsonData);
-
-          // Safety check: is this actually our file?
-          if (data.type !== "LORE_PROJECT_FILE") {
-            alert("Invalid file format. Please upload a .lore project file.");
-            return;
-          }
-
-          // Overwrite the store
-          set({
-            nodes: data.nodes || [],
-            edges: data.edges || [],
-            lists: data.lists || get().lists,
-            schema: data.schema || get().schema,
-          });
-
-          alert("Project loaded successfully!");
-        } catch (err) {
-          alert("Error parsing the file. Is it a valid JSON?");
-        }
-      },
-
-      updateProjectName: (name) => set({ projectName: name }),
-
-      // --- 6. GROUPING & SELECTION ACTIONS ---
-
-      // Helper to find all descendants connected to a node
-      getConnectedDescendants: (nodeId) => {
-        const { nodes, edges } = get();
-        let descendants = [];
-        let queue = [nodeId];
-
-        while (queue.length > 0) {
-          const currentId = queue.shift();
-          const children = edges
-            .filter((e) => e.source === currentId)
-            .map((e) => e.target);
-
-          for (const childId of children) {
-            if (!descendants.includes(childId)) {
-              descendants.push(childId);
-              queue.push(childId);
-            }
-          }
-        }
-        return descendants;
-      },
+      // -----------------------------------------------------------------------
+      // GROUPING
+      // -----------------------------------------------------------------------
 
       groupSelectedNodes: (baseColor = "#6366f1") => {
-        const { nodes } = get();
-        const selectedNodes = nodes.filter(
+        const { activeGraph, graphs } = get();
+        const currentGraph = graphs[activeGraph];
+        const selectedNodes = currentGraph.nodes.filter(
           (n) => n.selected && n.type !== "collection",
         );
-
         if (selectedNodes.length < 1) return;
+
         const title = window.prompt("Collection Name:", "New Chapter");
         if (!title) return;
 
-        // 1. Calculate the bounding box using absolute positions
-        const absPositions = selectedNodes.map((n) => getAbsolutePos(n, nodes));
+        const absPositions = selectedNodes.map((n) =>
+          getAbsolutePos(n, currentGraph.nodes),
+        );
         const minX = Math.min(...absPositions.map((p) => p.x));
         const minY = Math.min(...absPositions.map((p) => p.y));
         const maxX = Math.max(...absPositions.map((p) => p.x + 260));
         const maxY = Math.max(...absPositions.map((p) => p.y + 200));
-
         const padding = 60;
         const groupId = crypto.randomUUID();
 
-        // 2. Create the Collection Node
         const groupNode = {
           id: groupId,
           type: "collection",
@@ -947,10 +761,9 @@ export const useLoreStore = create(
           data: { title, color: baseColor },
         };
 
-        // 3. Update all nodes: assign parent to selected, keep others exactly as they are
-        const nextNodes = nodes.map((node) => {
+        const nextNodes = currentGraph.nodes.map((node) => {
           if (node.selected && node.type !== "collection") {
-            const abs = getAbsolutePos(node, nodes);
+            const abs = getAbsolutePos(node, currentGraph.nodes);
             return {
               ...node,
               parentId: groupId,
@@ -966,18 +779,29 @@ export const useLoreStore = create(
           return node;
         });
 
-        // 4. Combine: Group Node first (bottom), then all other nodes
-        set({ nodes: [groupNode, ...nextNodes] });
+        set((state) => ({
+          graphs: {
+            ...state.graphs,
+            [activeGraph]: {
+              ...currentGraph,
+              nodes: [groupNode, ...nextNodes],
+            },
+          },
+        }));
       },
 
+      /** Move currently-selected nodes into an existing collection. */
       moveToCollection: (targetGroupId) => {
-        const { nodes } = get();
-        const targetGroup = nodes.find((n) => n.id === targetGroupId);
+        const { activeGraph, graphs } = get();
+        const currentGraph = graphs[activeGraph];
+        const targetGroup = currentGraph.nodes.find(
+          (n) => n.id === targetGroupId,
+        );
         if (!targetGroup) return;
 
-        const updates = nodes.map((n) => {
+        const updatedNodes = currentGraph.nodes.map((n) => {
           if (n.selected && n.type !== "collection" && n.id !== targetGroupId) {
-            const absPos = getAbsolutePos(n, nodes);
+            const absPos = getAbsolutePos(n, currentGraph.nodes);
             return {
               ...n,
               parentId: targetGroupId,
@@ -992,96 +816,194 @@ export const useLoreStore = create(
           return n;
         });
 
-        // Re-sort so parents are earlier in the array than children
-        const sortedNodes = [...updates].sort((a, b) => {
+        // Collections must appear before their children in the array
+        const sortedNodes = [...updatedNodes].sort((a, b) => {
           if (a.type === "collection" && b.type !== "collection") return -1;
           if (a.type !== "collection" && b.type === "collection") return 1;
           return 0;
         });
 
-        set({ nodes: sortedNodes });
+        set((state) => ({
+          graphs: {
+            ...state.graphs,
+            [activeGraph]: { ...currentGraph, nodes: sortedNodes },
+          },
+        }));
       },
 
+      /** Remove selected nodes from their parent collection. */
       removeFromGroup: () => {
-        set((state) => {
-          const { nodes } = state;
-          return {
-            nodes: nodes.map((node) => {
-              // If the node is selected AND has a parent, pop it out
-              if (node.selected && node.parentId) {
-                const parent = nodes.find((n) => n.id === node.parentId);
-                return {
-                  ...node,
-                  parentId: undefined,
-                  extent: undefined,
-                  // Calculate absolute position so it stays exactly where it is visually
-                  position: {
-                    x: node.position.x + (parent?.position.x || 0),
-                    y: node.position.y + (parent?.position.y || 0),
-                  },
-                };
-              }
-              return node;
-            }),
+        const { activeGraph, graphs } = get();
+        const currentGraph = graphs[activeGraph];
+
+        set((state) => ({
+          graphs: {
+            ...state.graphs,
+            [activeGraph]: {
+              ...currentGraph,
+              nodes: currentGraph.nodes.map((node) => {
+                if (node.selected && node.parentId) {
+                  const parent = currentGraph.nodes.find(
+                    (n) => n.id === node.parentId,
+                  );
+                  return {
+                    ...node,
+                    parentId: undefined,
+                    extent: undefined,
+                    position: {
+                      x: node.position.x + (parent?.position.x || 0),
+                      y: node.position.y + (parent?.position.y || 0),
+                    },
+                  };
+                }
+                return node;
+              }),
+            },
+          },
+        }));
+      },
+
+      // -----------------------------------------------------------------------
+      // EXPORT / IMPORT
+      // -----------------------------------------------------------------------
+
+      /** Export a runtime-ready JSON (stripped of editor metadata). */
+      exportGameData: () => {
+        const { graphs, lists, schema, projectName } = get();
+
+        const exportGraphs = {};
+        Object.entries(graphs).forEach(([name, data]) => {
+          const startNode = data.nodes.find((n) => n.type === "start");
+          const startEdge = data.edges.find((e) => e.source === startNode?.id);
+
+          exportGraphs[name] = {
+            startNode: startEdge ? startEdge.target : null,
+            nodes: data.nodes
+              .filter((n) => n.type !== "start")
+              .map((node) => ({
+                id: node.id,
+                type: node.type,
+                data: node.data,
+                next: data.edges
+                  .filter((e) => e.source === node.id)
+                  .reduce((acc, e) => {
+                    const key =
+                      !e.sourceHandle || e.sourceHandle === "default-output"
+                        ? "next"
+                        : e.sourceHandle;
+                    acc[key] = e.target;
+                    return acc;
+                  }, {}),
+              })),
           };
         });
+
+        const bundle = {
+          metadata: {
+            projectName,
+            exportedAt: new Date().toISOString(),
+            version: "2.0",
+          },
+          registry: {
+            lists,
+            definitions: {
+              nodeFields: schema.nodeFields.map((f) => ({
+                id: f.id,
+                type: f.type,
+              })),
+              sequenceFields: schema.sequenceFields.map((f) => ({
+                id: f.id,
+                type: f.type,
+              })),
+            },
+          },
+          graphs: exportGraphs,
+        };
+
+        triggerDownload(
+          JSON.stringify(bundle, null, 2),
+          `${projectName.replace(/\s+/g, "_").toLowerCase()}_export.json`,
+        );
       },
 
-      deleteEdge: (edgeId) => {
-        set((state) => ({
-          edges: state.edges.filter((e) => e.id !== edgeId),
-        }));
+      /** Export a full fidelity project file (.lore) for round-tripping. */
+      exportProject: () => {
+        const { graphs, lists, schema, projectName } = get();
+        const projectData = {
+          type: "LORE_PROJECT_FILE",
+          version: "2.0.0",
+          projectName,
+          graphs,
+          lists,
+          schema,
+        };
+        triggerDownload(
+          JSON.stringify(projectData, null, 2),
+          `${projectName.toLowerCase().replace(/\s+/g, "_")}.lore`,
+        );
       },
 
-      addConditionToLogic: (nodeId) => {
-        set((state) => ({
-          nodes: state.nodes.map((n) =>
-            n.id === nodeId
-              ? {
-                  ...n,
-                  data: {
-                    ...n.data,
-                    // Fallback to empty array if conditions doesn't exist yet
-                    conditions: [
-                      ...(n.data.conditions || []),
-                      {
-                        id: crypto.randomUUID(),
-                        check_flag: "",
-                        operator: "==",
-                        value: "true",
-                      },
-                    ],
-                  },
-                }
-              : n,
-          ),
-        }));
-      },
-
-      removeConditionFromLogic: (nodeId, conditionId) => {
-        set((state) => ({
-          nodes: state.nodes.map((n) =>
-            n.id === nodeId
-              ? {
-                  ...n,
-                  data: {
-                    ...n.data,
-                    conditions: (n.data.conditions || []).filter(
-                      (c) => c.id !== conditionId,
-                    ),
-                  },
-                }
-              : n,
-          ),
-        }));
+      importProject: (jsonData) => {
+        try {
+          const data = JSON.parse(jsonData);
+          if (data.type !== "LORE_PROJECT_FILE") {
+            alert("Invalid file format. Please upload a .lore project file.");
+            return;
+          }
+          set({
+            graphs: data.graphs || { "Main Story": createEmptyGraph() },
+            lists: data.lists || get().lists,
+            schema: data.schema || get().schema,
+            projectName: data.projectName || get().projectName,
+            activeGraph: Object.keys(data.graphs || {})[0] || "Main Story",
+            editingNodeId: null,
+          });
+          alert("Project loaded successfully!");
+        } catch {
+          alert("Error parsing the file. Is it valid JSON?");
+        }
       },
     }),
+
+    // -------------------------------------------------------------------------
+    // PERSISTENCE CONFIG
+    // -------------------------------------------------------------------------
     {
-      name: "lore-engine-storage", // Unique key in localStorage
-      storage: createJSONStorage(() => localStorage), // Defaults to localStorage
+      name: "lore-engine-storage",
+      storage: createJSONStorage(() => localStorage),
+      onRehydrateStorage: () => (state) => {
+        // One-time migration: lift legacy top-level nodes into graphs["Main Story"]
+        if (
+          state &&
+          state.nodes?.length > 0 &&
+          state.graphs?.["Main Story"]?.nodes?.length === 0
+        ) {
+          console.log("Migrating legacy project to multi-graph format…");
+          state.graphs["Main Story"].nodes = state.nodes;
+          state.graphs["Main Story"].edges = state.edges;
+          state.nodes = [];
+          state.edges = [];
+        }
+      },
     },
   ),
 );
 
+// ---------------------------------------------------------------------------
+// PRIVATE HELPERS
+// ---------------------------------------------------------------------------
 
+function triggerDownload(content, filename) {
+  const blob = new Blob([content], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+// Expose to browser console for debugging
 window.useLoreStore = useLoreStore;

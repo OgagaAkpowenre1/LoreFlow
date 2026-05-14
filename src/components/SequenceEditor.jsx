@@ -7,39 +7,52 @@ import {
   ChevronRight,
   MessageSquare,
   ArrowLeft,
-} from "lucide-react"; 
+} from "lucide-react";
 
 export default function SequenceEditor({ nodeId, lines = [] }) {
   const { schema, updateNodeData } = useLoreStore();
   const [activeIndex, setActiveIndex] = useState(null);
 
   const updateLine = (index, fieldId, value) => {
+    const { activeGraph, graphs } = useLoreStore.getState();
+    const node = graphs[activeGraph].nodes.find((n) => n.id === nodeId);
+    if (!node) return;
     const newLines = [...lines];
     newLines[index] = { ...newLines[index], [fieldId]: value };
     updateNodeData(nodeId, {
-      ...useLoreStore.getState().nodes.find((n) => n.id === nodeId).data,
+      ...node.data,
       dialogueLines: newLines,
     });
   };
 
   const addLine = () => {
-    const newLine = schema.sequenceFields.reduce(
-      (acc, field) => ({ ...acc, [field.id]: "" }),
-      {},
-    );
-    const newLines = [...lines, newLine];
+    const { activeGraph, graphs, updateNodeData } = useLoreStore.getState();
+    const node = graphs[activeGraph].nodes.find((n) => n.id === nodeId);
+
+    if (!node) return;
+
+    const newLine = {
+      id: crypto.randomUUID(),
+      speaker: "",
+      text: "",
+      portrait: "",
+      sound: "",
+    };
+
     updateNodeData(nodeId, {
-      ...useLoreStore.getState().nodes.find((n) => n.id === nodeId).data,
-      dialogueLines: newLines,
+      ...node.data,
+      dialogueLines: [...(node.data.dialogueLines || []), newLine],
     });
-    setActiveIndex(newLines.length - 1); // Auto-focus new line
   };
 
   const removeLine = (e, index) => {
     e.stopPropagation();
+    const { activeGraph, graphs } = useLoreStore.getState();
+    const node = graphs[activeGraph].nodes.find((n) => n.id === nodeId);
+    if (!node) return;
     const newLines = lines.filter((_, i) => i !== index);
     updateNodeData(nodeId, {
-      ...useLoreStore.getState().nodes.find((n) => n.id === nodeId).data,
+      ...node.data,
       dialogueLines: newLines,
     });
     if (activeIndex === index) setActiveIndex(null);

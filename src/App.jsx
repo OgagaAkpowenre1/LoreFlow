@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Settings } from "lucide-react"; // Added this import
 import MainFlow from "./components/MainFlow";
 import SettingsEditor from "./components/SettingsEditor";
+import GraphNavigator from "./components/GraphNavigator";
 
 export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -27,6 +28,8 @@ export default function App() {
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
       />
+
+      <GraphNavigator />
     </div>
   );
 }

@@ -1,0 +1,186 @@
+import React, { useState, useRef, useEffect } from "react";
+import { Search, Plus, Share2, Trash2, Edit2, Check, X } from "lucide-react";
+import { useLoreStore } from "../store";
+
+export default function GraphNavigator() {
+  const {
+    graphs,
+    activeGraph,
+    setActiveGraph,
+    addGraph,
+    deleteGraph,
+    renameGraph,
+  } = useLoreStore();
+  const sidebarOpen = useLoreStore((state) => state.sidebarOpen);
+  const toggleSidebar = useLoreStore((state) => state.toggleSidebar);
+  const [search, setSearch] = useState("");
+
+  // Local state for renaming
+  const [renamingName, setRenamingName] = useState(null);
+  const [editValue, setEditValue] = useState("");
+  const inputRef = useRef(null);
+
+  const filteredGraphs = Object.keys(graphs).filter((name) =>
+    name.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  const startRenaming = (e, name) => {
+    e.stopPropagation(); // Don't switch graphs when clicking edit
+    setRenamingName(name);
+    setEditValue(name);
+  };
+
+  const handleRename = () => {
+    if (editValue.trim() && editValue !== renamingName) {
+      renameGraph(renamingName, editValue.trim());
+    }
+    setRenamingName(null);
+  };
+
+  // Auto-focus the input when pencil is clicked
+  useEffect(() => {
+    if (renamingName && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [renamingName]);
+
+  return (
+    <>
+      <aside
+        className={`fixed left-0 top-0 w-64 h-screen bg-gray-50 border-r border-gray-200 z-40 flex flex-col shadow-sm transition-transform duration-300 ease-in-out ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+      >
+        {/* HEADER */}
+        <div className="p-4 bg-white border-b border-gray-100 shrink-0">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+              Project Navigator
+            </h2>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => addGraph()}
+                className="p-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md shadow-blue-100"
+              >
+                <Plus size={14} />
+              </button>
+              <button
+                onClick={toggleSidebar}
+                className="lg:hidden p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+
+          <div className="relative">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              size={12}
+            />
+            <input
+              type="text"
+              placeholder="Find conversation..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full bg-gray-100 pl-8 pr-3 py-2 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500/20 border border-transparent focus:border-blue-500/50 transition-all"
+            />
+          </div>
+        </div>
+
+        {/* GRAPH LIST */}
+        <div className="flex-grow overflow-y-auto p-3 space-y-1">
+          {filteredGraphs.map((graphName) => {
+            const isActive = activeGraph === graphName;
+            const isRenaming = renamingName === graphName;
+            const nodeCount = graphs[graphName]?.nodes?.length || 0;
+
+            return (
+              <div
+                key={graphName}
+                onClick={() => !isRenaming && setActiveGraph(graphName)}
+                className={`group relative flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all border ${
+                  isActive
+                    ? "bg-white border-blue-200 shadow-sm ring-1 ring-blue-50"
+                    : "border-transparent hover:bg-white hover:border-gray-200 text-gray-500"
+                }`}
+              >
+                <div className="flex items-center gap-3 overflow-hidden flex-grow">
+                  <Share2
+                    size={14}
+                    className={isActive ? "text-blue-500" : "text-gray-300"}
+                  />
+
+                  {isRenaming ? (
+                    <input
+                      ref={inputRef}
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onBlur={handleRename}
+                      onKeyDown={(e) => e.key === "Enter" && handleRename()}
+                      className="bg-blue-50 text-[11px] font-bold text-blue-700 outline-none w-full rounded px-1"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-between w-full min-w-0">
+                      <span
+                        className={`text-[11px] font-bold truncate pr-2 ${isActive ? "text-gray-900" : ""}`}
+                      >
+                        {graphName}
+                      </span>
+                      {/* NODE COUNT BADGE */}
+                      <span className="text-[9px] font-bold bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-md group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors">
+                        {nodeCount}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* QUICK ACTIONS */}
+                {!isRenaming && (
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white pl-2">
+                    <button
+                      onClick={(e) => startRenaming(e, graphName)}
+                      className="p-1 hover:text-blue-600 text-gray-400"
+                    >
+                      <Edit2 size={12} />
+                    </button>
+                    {filteredGraphs.length > 1 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteGraph(graphName);
+                        }}
+                        className="p-1 hover:text-red-600 text-gray-400"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* FOOTER STATS */}
+        <div className="p-4 bg-white border-t border-gray-100">
+          <div className="flex justify-between items-center text-[9px] font-black text-gray-400 uppercase tracking-tighter">
+            <span>Total Graphs</span>
+            <span className="bg-gray-100 px-1.5 py-0.5 rounded-full">
+              {Object.keys(graphs).length}
+            </span>
+          </div>
+        </div>
+      </aside>
+
+      {/* ADD A FLOATING OPEN BUTTON (Visible when sidebar is closed) */}
+      {!sidebarOpen && (
+        <button
+          onClick={toggleSidebar}
+          className="fixed left-4 top-4 z-30 bg-white p-3 rounded-xl shadow-xl border border-gray-200 hover:scale-110 transition-all"
+        >
+          <Share2 size={20} className="text-blue-500" />
+        </button>
+      )}
+    </>
+  );
+}

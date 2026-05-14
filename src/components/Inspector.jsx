@@ -1,4 +1,12 @@
-import { Settings2, X, Trash2, MousePointerClick, Palette, Play } from "lucide-react";
+import React from "react";
+import {
+  Settings2,
+  X,
+  Trash2,
+  MousePointerClick,
+  Palette,
+  Play,
+} from "lucide-react";
 import { useLoreStore } from "../store";
 import SceneForm from "./SceneForm";
 import LogicForm from "./LogicForm";
@@ -9,39 +17,46 @@ export default function Inspector({ selectedNode }) {
     setEditingNode,
     deleteNode,
     setNodes,
-    nodes,
     getConnectedDescendants,
     updateNodeData,
     removeFromGroup,
     moveToCollection,
+    graphs,
+    activeGraph,
   } = useLoreStore();
 
-  // Filter for all available collections
-  const collections = nodes.filter((n) => n.type === "collection");
+  // --- SCOPING LOGIC ---
+  // Always derive the current nodes from the active graph
+  const currentNodes = graphs[activeGraph]?.nodes || [];
+
+  // Filter for all available collections in THIS graph
+  const collections = currentNodes.filter((n) => n.type === "collection");
 
   const handleSelectBranch = () => {
+    // 1. Use the helper (it now correctly looks inside activeGraph in your store)
     const descendantIds = getConnectedDescendants(selectedNode.id);
-
     const targetIds = [selectedNode.id, ...descendantIds];
-    setNodes(
-      nodes.map((n) => ({
-        ...n,
-        selected: targetIds.includes(n.id),
-      })),
-    );
+
+    // 2. Update nodes specifically for the active graph by mapping over currentNodes
+    const updatedNodes = currentNodes.map((n) => ({
+      ...n,
+      selected: targetIds.includes(n.id),
+    }));
+
+    setNodes(updatedNodes);
   };
 
   const handleColorChange = (newColor) => {
     if (selectedNode.type === "collection") {
-      // Collections use style.backgroundColor for their big background
-      setNodes(
-        nodes.map((n) =>
-          n.id === selectedNode.id
-            ? { ...n, style: { ...n.style, backgroundColor: newColor } }
-            : n,
-        ),
+      // Update the collections within the current graph's nodes
+      const updatedNodes = currentNodes.map((n) =>
+        n.id === selectedNode.id
+          ? { ...n, style: { ...n.style, backgroundColor: newColor } }
+          : n,
       );
+      setNodes(updatedNodes);
     } else {
+      // updateNodeData is already graph-aware in your refactored store
       updateNodeData(selectedNode.id, {
         ...selectedNode.data,
         color: newColor,
@@ -77,7 +92,9 @@ export default function Inspector({ selectedNode }) {
               ? "Logic Controller"
               : selectedNode?.type === "collection"
                 ? "Collection Settings"
-                : "Scene Editor"}
+                : selectedNode?.type === "start"
+                  ? "Entry Point"
+                  : "Scene Editor"}
           </h2>
         </div>
         <button
@@ -124,7 +141,7 @@ export default function Inspector({ selectedNode }) {
           <SceneForm node={selectedNode} />
         ) : null}
 
-        {/* 2. Universal color palette — shown for every node type */}
+        {/* 2. Universal color palette */}
         {selectedNode && (
           <div className="mt-8 pt-6 border-t border-gray-100">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-3">
@@ -152,7 +169,6 @@ export default function Inspector({ selectedNode }) {
                 />
               </div>
 
-              {/* Quick presets */}
               <div className="flex gap-1">
                 {["#3b82f6", "#f97316", "#ef4444", "#22c55e", "#a855f7"].map(
                   (preset) => (
@@ -172,7 +188,6 @@ export default function Inspector({ selectedNode }) {
 
       {/* ── Action buttons ── */}
       <div className="px-4 pb-2 space-y-2">
-        {/* Remove From Collection — only when node has a parent */}
         {selectedNode?.parentId && (
           <div className="pt-3">
             <button
@@ -184,24 +199,22 @@ export default function Inspector({ selectedNode }) {
           </div>
         )}
 
-        {/* Select Branch — not for collections */}
-        {selectedNode && selectedNode.type !== "collection" && (
-          <div className="pt-1 pb-2 bg-blue-50/50 rounded-xl border border-blue-100 px-3 py-3">
-            <button
-              onClick={handleSelectBranch}
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-white text-blue-600 border border-blue-200 rounded-xl text-[10px] font-black uppercase hover:bg-blue-600 hover:text-white hover:shadow-lg hover:shadow-blue-100 transition-all group"
-            >
-              <MousePointerClick
-                size={14}
-                className="group-hover:scale-110 transition-transform"
-              />
-              Select Branch
-            </button>
-            <p className="text-[8px] text-blue-400 text-center mt-2 font-bold uppercase tracking-tight">
-              Auto-selects all nodes reachable from here
-            </p>
-          </div>
-        )}
+        {selectedNode &&
+          selectedNode.type !== "collection" &&
+          selectedNode.type !== "start" && (
+            <div className="pt-1 pb-2 bg-blue-50/50 rounded-xl border border-blue-100 px-3 py-3">
+              <button
+                onClick={handleSelectBranch}
+                className="w-full flex items-center justify-center gap-2 py-2.5 bg-white text-blue-600 border border-blue-200 rounded-xl text-[10px] font-black uppercase hover:bg-blue-600 hover:text-white hover:shadow-lg hover:shadow-blue-100 transition-all group"
+              >
+                <MousePointerClick
+                  size={14}
+                  className="group-hover:scale-110 transition-transform"
+                />
+                Select Branch
+              </button>
+            </div>
+          )}
 
         {selectedNode && selectedNode.type !== "collection" && (
           <div className="px-4 py-4 border-t space-y-3">
@@ -215,12 +228,11 @@ export default function Inspector({ selectedNode }) {
                 value={selectedNode.parentId || ""}
                 onChange={(e) => {
                   if (e.target.value === "") {
-                    // If moving to "Global", we still remove the selection from group
-                    nodes
+                    // Pull selected nodes from the CORRECT graph
+                    currentNodes
                       .filter((n) => n.selected)
                       .forEach((n) => removeFromGroup(n.id));
                   } else {
-                    // We only pass the destination Group ID
                     moveToCollection(e.target.value);
                   }
                 }}

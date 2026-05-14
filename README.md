@@ -504,6 +504,55 @@ should we have more types of nodes?
 allow for point checking and point type of values
 delete project throws alert, make component
 
+
+
+
+Phase 2 is the architectural leap that transforms LoreFlow from a **"single-file script"** into a **"production-ready studio."**
+
+Right now, you have one canvas. If you wanted to write 50 NPCs, your map would become a "spaghetti monster" of nodes that would be impossible to navigate. Phase 2 solves this by introducing a **Multi-Graph Model.**
+
+---
+
+### 1. The Switchboard (Graph Manager)
+
+The biggest visual addition will be a new sidebar panel. Think of this like the "Pages" panel in Photoshop or the "Files" explorer in VS Code.
+
+* **Modular Storytelling:** You can create separate, clean canvases for every conversation (e.g., `Innkeeper_Intro`, `Guard_Post_Logic`, `Final_Boss_Monologue`).
+* **Organization:** You can add, rename, duplicate, and delete graphs without affecting the others.
+* **Focus:** By clicking a graph name, the canvas instantly swaps to show only the nodes and edges for that specific interaction.
+
+### 2. The Persistent Universe (Shared State)
+
+Even though the **visuals** (nodes/edges) are separated into different graphs, the **data** stays unified.
+
+* **Global Variables:** If the player gains `gold` in the `Quest_Reward` graph, the `Merchant_Shop` graph will see that updated value immediately.
+* **Shared Lists:** Your characters, sfx, and backgrounds are available to every scene in every graph. This ensures consistency across your entire game world.
+
+### 3. The Context Switcher (Zustand Refactor)
+
+Behind the scenes, we’ll be changing how the store "thinks."
+
+* **Scoping:** We will move `nodes` and `edges` into a `graphs` object.
+* **Viewport Memory:** Ideally, we want the editor to remember exactly where you were zoomed in on each graph. If you leave the `Blacksmith` graph to check the `Guard` graph, when you return, you should be looking at the same spot.
+
+### 4. Safety First (Auto-Migration)
+
+One of the most important "features" of Phase 2 is the **Migration Layer.**
+
+* We will write logic that detects if a user is opening an "Old Version" (v1.0) project.
+* Instead of crashing, LoreFlow will silently wrap those old nodes/edges into a new `main` graph, so you never lose a single second of your previous work.
+
+---
+
+### Why this matters for your RPG
+
+In a real RPG, you don't just have one long dialogue. You have **Modular Interactions**.
+
+* **The Blacksmith** might have 3 different graphs: `First_Meeting`, `Standard_Shop`, and `Post_Dragon_Dead`.
+* Phase 2 allows you to author these as distinct logical chunks while keeping them all under the umbrella of one Project File.
+
+**Are you ready to start with the Store refactor, or would you like to see the UI layout for the Graph Manager first?**
+
 A Warning for the Future (The "Orphan Reference" Problem)
 
 If you change a variable name from gold_amount to player_gold in this list, any Logic Node on your map that was previously checking gold_amount will now be pointing to a ghost.
