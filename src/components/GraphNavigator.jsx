@@ -1,5 +1,15 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Search, Plus, Share2, Trash2, Edit2, Check, X } from "lucide-react";
+import {
+  Search,
+  Plus,
+  Share2,
+  Trash2,
+  Edit2,
+  X,
+  Copy,
+  Play,
+  Flag,
+} from "lucide-react";
 import { useLoreStore } from "../store";
 
 export default function GraphNavigator() {
@@ -10,12 +20,14 @@ export default function GraphNavigator() {
     addGraph,
     deleteGraph,
     renameGraph,
+    duplicateGraph,
+    startGraph,
+    setStartGraph, // <--- Add this
+    sidebarOpen,
+    toggleSidebar,
   } = useLoreStore();
-  const sidebarOpen = useLoreStore((state) => state.sidebarOpen);
-  const toggleSidebar = useLoreStore((state) => state.toggleSidebar);
-  const [search, setSearch] = useState("");
 
-  // Local state for renaming
+  const [search, setSearch] = useState("");
   const [renamingName, setRenamingName] = useState(null);
   const [editValue, setEditValue] = useState("");
   const inputRef = useRef(null);
@@ -24,12 +36,6 @@ export default function GraphNavigator() {
     name.toLowerCase().includes(search.toLowerCase()),
   );
 
-  const startRenaming = (e, name) => {
-    e.stopPropagation(); // Don't switch graphs when clicking edit
-    setRenamingName(name);
-    setEditValue(name);
-  };
-
   const handleRename = () => {
     if (editValue.trim() && editValue !== renamingName) {
       renameGraph(renamingName, editValue.trim());
@@ -37,7 +43,6 @@ export default function GraphNavigator() {
     setRenamingName(null);
   };
 
-  // Auto-focus the input when pencil is clicked
   useEffect(() => {
     if (renamingName && inputRef.current) {
       inputRef.current.focus();
@@ -50,7 +55,6 @@ export default function GraphNavigator() {
       <aside
         className={`fixed left-0 top-0 w-64 h-screen bg-gray-50 border-r border-gray-200 z-40 flex flex-col shadow-sm transition-transform duration-300 ease-in-out ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
-        {/* HEADER */}
         <div className="p-4 bg-white border-b border-gray-100 shrink-0">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-[10px] font-black uppercase tracking-widest text-gray-400">
@@ -65,7 +69,7 @@ export default function GraphNavigator() {
               </button>
               <button
                 onClick={toggleSidebar}
-                className="lg:hidden p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <X size={14} />
               </button>
@@ -82,16 +86,16 @@ export default function GraphNavigator() {
               placeholder="Find conversation..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-gray-100 pl-8 pr-3 py-2 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500/20 border border-transparent focus:border-blue-500/50 transition-all"
+              className="w-full bg-gray-100 pl-8 pr-3 py-2 rounded-xl text-xs outline-none border border-transparent focus:border-blue-500/50 transition-all"
             />
           </div>
         </div>
 
-        {/* GRAPH LIST */}
         <div className="flex-grow overflow-y-auto p-3 space-y-1">
           {filteredGraphs.map((graphName) => {
             const isActive = activeGraph === graphName;
             const isRenaming = renamingName === graphName;
+            const isStart = startGraph === graphName;
             const nodeCount = graphs[graphName]?.nodes?.length || 0;
 
             return (
@@ -121,12 +125,18 @@ export default function GraphNavigator() {
                     />
                   ) : (
                     <div className="flex items-center justify-between w-full min-w-0">
-                      <span
-                        className={`text-[11px] font-bold truncate pr-2 ${isActive ? "text-gray-900" : ""}`}
-                      >
-                        {graphName}
-                      </span>
-                      {/* NODE COUNT BADGE */}
+                      <div className="flex items-center min-w-0 pr-2">
+                        <span
+                          className={`text-[11px] font-bold truncate ${isActive ? "text-gray-900" : ""}`}
+                        >
+                          {graphName}
+                        </span>
+                        {isStart && (
+                          <div className="ml-2 p-0.5 bg-emerald-100 text-emerald-600 rounded shrink-0">
+                            <Play size={8} fill="currentColor" />
+                          </div>
+                        )}
+                      </div>
                       <span className="text-[9px] font-bold bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-md group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors">
                         {nodeCount}
                       </span>
@@ -134,12 +144,39 @@ export default function GraphNavigator() {
                   )}
                 </div>
 
-                {/* QUICK ACTIONS */}
                 {!isRenaming && (
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white pl-2">
+                    {/* SET START BUTTON */}
+                    {!isStart && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setStartGraph(graphName);
+                        }}
+                        className="p-1 hover:text-emerald-600 text-gray-400"
+                        title="Set as Project Start"
+                      >
+                        <Flag size={12} />
+                      </button>
+                    )}
                     <button
-                      onClick={(e) => startRenaming(e, graphName)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        duplicateGraph(graphName);
+                      }}
+                      className="p-1 hover:text-indigo-600 text-gray-400"
+                      title="Duplicate"
+                    >
+                      <Copy size={12} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setRenamingName(graphName);
+                        setEditValue(graphName);
+                      }}
                       className="p-1 hover:text-blue-600 text-gray-400"
+                      title="Rename"
                     >
                       <Edit2 size={12} />
                     </button>
@@ -161,7 +198,6 @@ export default function GraphNavigator() {
           })}
         </div>
 
-        {/* FOOTER STATS */}
         <div className="p-4 bg-white border-t border-gray-100">
           <div className="flex justify-between items-center text-[9px] font-black text-gray-400 uppercase tracking-tighter">
             <span>Total Graphs</span>
@@ -172,7 +208,6 @@ export default function GraphNavigator() {
         </div>
       </aside>
 
-      {/* ADD A FLOATING OPEN BUTTON (Visible when sidebar is closed) */}
       {!sidebarOpen && (
         <button
           onClick={toggleSidebar}

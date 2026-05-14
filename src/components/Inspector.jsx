@@ -11,6 +11,7 @@ import { useLoreStore } from "../store";
 import SceneForm from "./SceneForm";
 import LogicForm from "./LogicForm";
 import CollectionForm from "./CollectionForm";
+import JumpForm from "./JumpForm";
 
 export default function Inspector({ selectedNode }) {
   const {
@@ -94,7 +95,9 @@ export default function Inspector({ selectedNode }) {
                 ? "Collection Settings"
                 : selectedNode?.type === "start"
                   ? "Entry Point"
-                  : "Scene Editor"}
+                  : selectedNode?.type === "jump"
+                    ? "Jump To Next Graph"
+                    : "Scene Editor"}
           </h2>
         </div>
         <button
@@ -112,6 +115,8 @@ export default function Inspector({ selectedNode }) {
           <LogicForm node={selectedNode} />
         ) : selectedNode?.type === "collection" ? (
           <CollectionForm node={selectedNode} />
+        ) : selectedNode?.type === "jump" ? (
+          <JumpForm node={selectedNode} />
         ) : selectedNode?.type === "start" ? (
           <div className="space-y-4">
             <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100 text-center">

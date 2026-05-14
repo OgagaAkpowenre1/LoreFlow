@@ -54,6 +54,8 @@ export const useLoreStore = create(
         "Main Story": createEmptyGraph(),
       },
 
+      startGraph: "Main Story",
+
       // Legacy holders kept only for migration
       nodes: [],
       edges: [],
@@ -185,6 +187,8 @@ export const useLoreStore = create(
 
       setActiveGraph: (name) => set({ activeGraph: name, editingNodeId: null }),
 
+      setStartGraph: (name) => set({ startGraph: name }),
+
       // Add this to your state
       sidebarOpen: true,
       toggleSidebar: () =>
@@ -201,12 +205,27 @@ export const useLoreStore = create(
         }));
       },
 
+      // --- UPDATE renameGraph TO FIX JUMP NODES ---
       renameGraph: (oldName, newName) => {
         if (oldName === newName || !newName.trim()) return;
         set((state) => {
           const newGraphs = { ...state.graphs };
           newGraphs[newName] = newGraphs[oldName];
           delete newGraphs[oldName];
+
+          // Search all nodes in all graphs for Jump Nodes pointing to the old name
+          Object.keys(newGraphs).forEach((key) => {
+            newGraphs[key].nodes = newGraphs[key].nodes.map((node) => {
+              if (node.type === "jump" && node.data.targetGraph === oldName) {
+                return {
+                  ...node,
+                  data: { ...node.data, targetGraph: newName },
+                };
+              }
+              return node;
+            });
+          });
+
           return {
             graphs: newGraphs,
             activeGraph:
@@ -221,6 +240,36 @@ export const useLoreStore = create(
         delete graphs[name];
         const nextGraph = Object.keys(graphs)[0];
         set({ graphs, activeGraph: nextGraph, editingNodeId: null });
+      },
+
+      duplicateGraph: (name) => {
+        const { graphs } = get();
+        const sourceGraph = graphs[name];
+        if (!sourceGraph) return;
+
+        // 1. Create a unique name for the copy
+        let newName = `${name} (Copy)`;
+        let counter = 1;
+        while (graphs[newName]) {
+          newName = `${name} (Copy) ${counter++}`;
+        }
+
+        // 2. Deep clone the nodes and edges
+        // We use JSON parse/stringify for a quick deep clone of the data objects
+        const clonedNodes = JSON.parse(JSON.stringify(sourceGraph.nodes));
+        const clonedEdges = JSON.parse(JSON.stringify(sourceGraph.edges));
+
+        set((state) => ({
+          graphs: {
+            ...state.graphs,
+            [newName]: {
+              ...sourceGraph, // Keeps the viewport settings
+              nodes: clonedNodes,
+              edges: clonedEdges,
+            },
+          },
+          activeGraph: newName, // Automatically switch to the new copy
+        }));
       },
 
       // -----------------------------------------------------------------------
@@ -338,7 +387,9 @@ export const useLoreStore = create(
                 }
               : type === "logic"
                 ? defaultLogicData
-                : {},
+                : type === "jump"
+                  ? { targetGraph: "" } // New jump data
+                  : {},
         };
 
         set((state) => {
@@ -903,6 +954,7 @@ export const useLoreStore = create(
             projectName,
             exportedAt: new Date().toISOString(),
             version: "2.0",
+            startGraph: get().startGraph,
           },
           registry: {
             lists,

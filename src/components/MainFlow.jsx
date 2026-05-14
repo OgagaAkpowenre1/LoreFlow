@@ -9,12 +9,14 @@ import CollectionNode from "./CollectionNode";
 import Navbar from "./Navbar";
 import DeleteEdge from "./DeleteEdge";
 import StartNode from "./StartNode";
+import JumpNode from "./JumpNode";
 
 const nodeTypes = {
   scene: SceneNode,
   logic: LogicNode,
   collection: CollectionNode,
   start: StartNode,
+  jump: JumpNode
 };
 
 const edgeTypes = {
