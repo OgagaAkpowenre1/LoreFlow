@@ -56,6 +56,12 @@ export const useLoreStore = create(
 
       startGraph: "Main Story",
 
+      graphFolders: [], // Array of strings: ["NPCs", "Main Quest", "Cutscenes"]
+      activeFolder: null, // For UI filtering
+
+      // store.js - Initial State
+      conversationRegistry: {},
+
       // Legacy holders kept only for migration
       nodes: [],
       edges: [],
@@ -213,7 +219,15 @@ export const useLoreStore = create(
           newGraphs[newName] = newGraphs[oldName];
           delete newGraphs[oldName];
 
-          // Search all nodes in all graphs for Jump Nodes pointing to the old name
+          // ── REFACTOR: Update Registry graph pointers ──
+          const newRegistry = { ...state.conversationRegistry };
+          Object.keys(newRegistry).forEach((npcId) => {
+            newRegistry[npcId] = newRegistry[npcId].map((rule) =>
+              rule.graph === oldName ? { ...rule, graph: newName } : rule,
+            );
+          });
+
+          // ── REFACTOR: Update Jump Nodes (Phase 2 legacy) ──
           Object.keys(newGraphs).forEach((key) => {
             newGraphs[key].nodes = newGraphs[key].nodes.map((node) => {
               if (node.type === "jump" && node.data.targetGraph === oldName) {
@@ -228,6 +242,7 @@ export const useLoreStore = create(
 
           return {
             graphs: newGraphs,
+            conversationRegistry: newRegistry,
             activeGraph:
               state.activeGraph === oldName ? newName : state.activeGraph,
           };
@@ -271,6 +286,51 @@ export const useLoreStore = create(
           activeGraph: newName, // Automatically switch to the new copy
         }));
       },
+
+      addFolder: (name) =>
+        set((state) => ({
+          graphFolders: [...state.graphFolders, name],
+        })),
+
+      renameFolder: (oldName, newName) =>
+        set((state) => {
+          const newFolders = state.graphFolders.map((f) =>
+            f === oldName ? newName : f,
+          );
+          const newGraphs = { ...state.graphs };
+
+          // Update the folder metadata in all graphs
+          Object.keys(newGraphs).forEach((gKey) => {
+            if (newGraphs[gKey].folder === oldName) {
+              newGraphs[gKey].folder = newName;
+            }
+          });
+
+          return { graphFolders: newFolders, graphs: newGraphs };
+        }),
+
+      deleteFolder: (folderName) =>
+        set((state) => {
+          const newGraphs = { ...state.graphs };
+          // Graphs in this folder become "Unassigned"
+          Object.keys(newGraphs).forEach((gKey) => {
+            if (newGraphs[gKey].folder === folderName) {
+              newGraphs[gKey].folder = null;
+            }
+          });
+          return {
+            graphFolders: state.graphFolders.filter((f) => f !== folderName),
+            graphs: newGraphs,
+          };
+        }),
+
+      moveGraphToFolder: (graphName, folderName) =>
+        set((state) => ({
+          graphs: {
+            ...state.graphs,
+            [graphName]: { ...state.graphs[graphName], folder: folderName },
+          },
+        })),
 
       // -----------------------------------------------------------------------
       // REACT FLOW — GRAPH-AWARE HANDLERS
@@ -678,18 +738,26 @@ export const useLoreStore = create(
           return { lists: newLists, listMetadata: newMeta };
         }),
 
+      // --- Inside useLoreStore ---
       addToList: (listId, newItem) =>
         set((state) => {
           let finalItem = newItem;
+
+          // If adding a variable, ensure it has a type-safe default value
           if (
             state.listMetadata[listId] === "variable" &&
             typeof newItem === "object"
           ) {
+            let defVal = false; // Default for boolean
+            if (newItem.type === "number") defVal = 0;
+            if (newItem.type === "string") defVal = ""; // <--- ADD THIS LINE
+
             finalItem = {
               ...newItem,
-              defaultValue: newItem.type === "number" ? 0 : false,
+              defaultValue: defVal,
             };
           }
+
           return {
             lists: {
               ...state.lists,
@@ -698,78 +766,209 @@ export const useLoreStore = create(
           };
         }),
 
-      removeItemFromList: (listId, index) =>
-        set((state) => ({
-          lists: {
-            ...state.lists,
-            [listId]: state.lists[listId].filter((_, i) => i !== index),
-          },
-        })),
+      // --- Inside useLoreStore ---
 
-      updateItemInList: (listId, index, newValue) =>
+      removeItemFromList: (listId, index) => {
         set((state) => {
-          const newList = [...(state.lists[listId] || [])];
-          newList[index] = newValue;
-          return { lists: { ...state.lists, [listId]: newList } };
-        }),
+          const itemToDelete = state.lists[listId][index];
+          const isVariable = state.listMetadata[listId] === "variable";
+          const deleteName = isVariable ? itemToDelete.name : itemToDelete;
 
-      updateVariable: (listId, index, field, value) => {
-        set((state) => {
-          const newList = [...(state.lists[listId] || [])];
-          const oldVar = newList[index];
-          const newVarName = field === "name" ? value : oldVar.name;
-          const oldVarName = oldVar.name;
+          // 1. Remove from the actual list
+          const newList = state.lists[listId].filter((_, i) => i !== index);
 
-          // 1. Update the variable in the list
-          const updatedVar = { ...oldVar, [field]: value };
-          if (field === "type")
-            updatedVar.defaultValue = value === "number" ? 0 : false;
-          newList[index] = updatedVar;
+          // 2. SCRUB GRAPHS (Mutation-Free)
+          const updatedGraphs = { ...state.graphs };
 
-          // 2. REFACTOR ENGINE: If name changed, update all graphs
-          let updatedGraphs = { ...state.graphs };
+          Object.keys(updatedGraphs).forEach((gKey) => {
+            // Must recreate the graph object to avoid mutating state.graphs[gKey] directly
+            updatedGraphs[gKey] = {
+              ...updatedGraphs[gKey],
+              nodes: updatedGraphs[gKey].nodes.map((node) => {
+                let newData = { ...node.data };
+                let changed = false;
 
-          if (field === "name" && oldVarName !== newVarName) {
-            Object.keys(updatedGraphs).forEach((graphKey) => {
-              const graph = updatedGraphs[graphKey];
+                // Scrub Logic Nodes
+                if (node.type === "logic" && newData.conditions) {
+                  const originalLength = newData.conditions.length;
+                  newData.conditions = newData.conditions.filter(
+                    (c) => c.check_flag !== deleteName,
+                  );
+                  if (newData.conditions.length !== originalLength)
+                    changed = true;
+                }
 
-              updatedGraphs[graphKey] = {
-                ...graph,
-                nodes: graph.nodes.map((node) => {
-                  // A. Update Logic Nodes
-                  if (node.type === "logic" && node.data.conditions) {
-                    return {
-                      ...node,
-                      data: {
-                        ...node.data,
-                        conditions: node.data.conditions.map((cond) =>
-                          cond.check_flag === oldVarName
-                            ? { ...cond, check_flag: newVarName }
-                            : cond,
-                        ),
-                      },
-                    };
-                  }
-                  // B. Update Scene Nodes (Flags)
-                  if (node.type === "scene" && node.data.flags) {
-                    return {
-                      ...node,
-                      data: {
-                        ...node.data,
-                        flags: node.data.flags.map((f) =>
-                          f.key === oldVarName ? { ...f, key: newVarName } : f,
-                        ),
-                      },
-                    };
-                  }
-                  return node;
-                }),
-              };
+                // Scrub Scene Flags
+                if (newData.flags) {
+                  const originalLength = newData.flags.length;
+                  newData.flags = newData.flags.filter(
+                    (f) => f.key !== deleteName,
+                  );
+                  if (newData.flags.length !== originalLength) changed = true;
+                }
+
+                // Scrub Dialogue Speakers (If deleting from 'characters' list)
+                if (listId === "characters" && newData.dialogueLines) {
+                  const scrubbedLines = newData.dialogueLines.map((line) => {
+                    if (line.speaker === deleteName) {
+                      changed = true;
+                      return { ...line, speaker: "" };
+                    }
+                    return line;
+                  });
+                  if (changed) newData.dialogueLines = scrubbedLines;
+                }
+
+                return changed ? { ...node, data: newData } : node;
+              }),
+            };
+          });
+
+          // 3. SCRUB REGISTRY (If it's a variable)
+          const newRegistry = { ...state.conversationRegistry };
+          if (isVariable) {
+            Object.keys(newRegistry).forEach((npcId) => {
+              const originalLength = newRegistry[npcId].length;
+              newRegistry[npcId] = newRegistry[npcId].filter(
+                (rule) =>
+                  !rule.condition || rule.condition.variable !== deleteName,
+              );
+              // We don't track 'changed' here because we just recreate the array,
+              // Zustand will handle the shallow compare at the top level.
             });
           }
 
           return {
             lists: { ...state.lists, [listId]: newList },
+            graphs: updatedGraphs,
+            conversationRegistry: newRegistry,
+          };
+        });
+      },
+
+      updateItemInList: (listId, index, newValue) => {
+        set((state) => {
+          const oldValue = state.lists[listId][index];
+          if (oldValue === newValue) return state;
+
+          // 1. Update the list itself
+          const newList = [...(state.lists[listId] || [])];
+          newList[index] = newValue;
+
+          // 2. SCAN & REPLACE ENGINE
+          let updatedGraphs = { ...state.graphs };
+
+          // Find which Blueprint fields are actually linked to this list
+          const affectedNodeFields = state.schema.nodeFields
+            .filter((f) => f.listId === listId)
+            .map((f) => f.id);
+          const affectedSeqFields = state.schema.sequenceFields
+            .filter((f) => f.listId === listId)
+            .map((f) => f.id);
+
+          Object.keys(updatedGraphs).forEach((gKey) => {
+            updatedGraphs[gKey] = {
+              ...updatedGraphs[gKey],
+              nodes: updatedGraphs[gKey].nodes.map((node) => {
+                let hasChanged = false;
+                let newData = { ...node.data };
+
+                // Fix top-level node data (e.g., node.data.background)
+                affectedNodeFields.forEach((fieldId) => {
+                  if (newData[fieldId] === oldValue) {
+                    newData[fieldId] = newValue;
+                    hasChanged = true;
+                  }
+                });
+
+                // Fix Dialogue Sequences (e.g., speaker or portrait inside lines)
+                if (newData.dialogueLines) {
+                  newData.dialogueLines = newData.dialogueLines.map((line) => {
+                    let newLine = { ...line };
+                    affectedSeqFields.forEach((fieldId) => {
+                      if (newLine[fieldId] === oldValue)
+                        newLine[fieldId] = newValue;
+                    });
+                    return newLine;
+                  });
+                  hasChanged = true;
+                }
+
+                return hasChanged ? { ...node, data: newData } : node;
+              }),
+            };
+          });
+
+          return {
+            lists: { ...state.lists, [listId]: newList },
+            graphs: updatedGraphs,
+          };
+        });
+      },
+
+      updateVariable: (listId, index, field, value) => {
+        set((state) => {
+          const newList = [...(state.lists[listId] || [])];
+          const oldVar = newList[index];
+          const oldVarName = oldVar.name;
+          const newVarName = field === "name" ? value : oldVarName;
+
+          const updatedVar = { ...oldVar, [field]: value };
+          if (field === "type") {
+            if (value === "number") updatedVar.defaultValue = 0;
+            else if (value === "string") updatedVar.defaultValue = "";
+            else updatedVar.defaultValue = false;
+          }
+          newList[index] = updatedVar;
+
+          const newRegistry = { ...state.conversationRegistry };
+          let updatedGraphs = { ...state.graphs };
+
+          if (field === "name" && oldVarName !== newVarName) {
+            // 1. Fix Registry
+            Object.keys(newRegistry).forEach((npcId) => {
+              newRegistry[npcId] = newRegistry[npcId].map((rule) =>
+                rule.condition?.variable === oldVarName
+                  ? {
+                      ...rule,
+                      condition: { ...rule.condition, variable: newVarName },
+                    }
+                  : rule,
+              );
+            });
+
+            // 2. Fix Logic Nodes and Scene Flags on Map
+            Object.keys(updatedGraphs).forEach((gKey) => {
+              updatedGraphs[gKey].nodes = updatedGraphs[gKey].nodes.map(
+                (node) => {
+                  let newData = { ...node.data };
+                  let changed = false;
+
+                  if (node.type === "logic" && newData.conditions) {
+                    newData.conditions = newData.conditions.map((c) =>
+                      c.check_flag === oldVarName
+                        ? { ...c, check_flag: newVarName }
+                        : c,
+                    );
+                    changed = true;
+                  }
+
+                  if (newData.flags) {
+                    newData.flags = newData.flags.map((f) =>
+                      f.key === oldVarName ? { ...f, key: newVarName } : f,
+                    );
+                    changed = true;
+                  }
+
+                  return changed ? { ...node, data: newData } : node;
+                },
+              );
+            });
+          }
+
+          return {
+            lists: { ...state.lists, [listId]: newList },
+            conversationRegistry: newRegistry,
             graphs: updatedGraphs,
           };
         });
@@ -914,6 +1113,66 @@ export const useLoreStore = create(
         }));
       },
 
+      // ── REGISTRY ACTIONS ──
+
+      registerNpc: (npcId) =>
+        set((state) => ({
+          conversationRegistry: {
+            ...state.conversationRegistry,
+            [npcId]: [
+              {
+                id: crypto.randomUUID(),
+                priority: 0,
+                condition: null,
+                graph: "",
+              },
+            ],
+          },
+        })),
+
+      updateRegistryRule: (npcId, ruleId, updates) =>
+        set((state) => ({
+          conversationRegistry: {
+            ...state.conversationRegistry,
+            [npcId]: state.conversationRegistry[npcId].map((r) =>
+              r.id === ruleId ? { ...r, ...updates } : r,
+            ),
+          },
+        })),
+
+      addRegistryRule: (npcId) =>
+        set((state) => ({
+          conversationRegistry: {
+            ...state.conversationRegistry,
+            [npcId]: [
+              {
+                id: crypto.randomUUID(),
+                priority: 10,
+                condition: { variable: "", op: "==", value: "" },
+                graph: "",
+              },
+              ...state.conversationRegistry[npcId],
+            ],
+          },
+        })),
+
+      deleteRegistryRule: (npcId, ruleId) =>
+        set((state) => ({
+          conversationRegistry: {
+            ...state.conversationRegistry,
+            [npcId]: state.conversationRegistry[npcId].filter(
+              (r) => r.id !== ruleId,
+            ),
+          },
+        })),
+
+      deleteNpcFromRegistry: (npcId) =>
+        set((state) => {
+          const newRegistry = { ...state.conversationRegistry };
+          delete newRegistry[npcId];
+          return { conversationRegistry: newRegistry };
+        }),
+
       // -----------------------------------------------------------------------
       // EXPORT / IMPORT
       // -----------------------------------------------------------------------
@@ -958,6 +1217,7 @@ export const useLoreStore = create(
           },
           registry: {
             lists,
+            conversations: get().conversationRegistry, // The new routing table!
             definitions: {
               nodeFields: schema.nodeFields.map((f) => ({
                 id: f.id,

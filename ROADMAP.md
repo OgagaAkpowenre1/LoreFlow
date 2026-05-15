@@ -312,3 +312,8 @@ The canvas, ReactFlow wiring, node visual design, Inspector, SceneForm,
 SequenceEditor, ChoiceEditor, FlagGroup, SmartInput, schema system, and
 SettingsEditor structure are all untouched through Phase 4. Every phase
 is additive. Nothing already built is thrown away.
+
+
+### Future Optimization (Post-MVP)
+*   **Lazy Validation for Deletions:** Currently, when a user deletes a Variable or a Character from the Global Lists, the engine synchronously loops through all graphs, nodes, and registry rules to "scrub" the deleted item. For small to medium projects, this is fine and keeps the data perfectly clean. However, if projects scale to hundreds of graphs and thousands of nodes, this $O(N)$ operation on the UI thread will cause a noticeable freeze.
+*   **Solution:** Move to a "Lazy Validation" model (like Unity/Unreal). Deletions from the Global List should be instant. The Map Nodes and Registry should check for "broken references" during render and display a red warning state. The heavy scrubbing should be deferred to the `exportGameData` JSON generation process.
