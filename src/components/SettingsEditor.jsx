@@ -97,7 +97,6 @@ function NavBtn({ active, onClick, icon, label }) {
         }
       `}
     >
-      {/* FIXED: Icon wrapper forces consistent spacing regardless of icon width */}
       <span className="shrink-0 w-5 flex justify-center">{icon}</span>
       <span className="hidden lg:inline truncate">{label}</span>
     </button>
@@ -387,6 +386,7 @@ function ListsTab() {
                         >
                           <option value="boolean">Bool</option>
                           <option value="number">Num</option>
+                          <option value="string">Text</option>
                         </select>
 
                         <div className="h-4 w-px bg-gray-200 mx-1" />
@@ -408,6 +408,21 @@ function ListsTab() {
                                 )
                               }
                               className="w-12 bg-white border border-gray-200 rounded text-[10px] font-bold px-1 outline-none"
+                            />
+                          ) : item.type === "string" ? (
+                            <input
+                              type="text"
+                              value={item.defaultValue ?? ""}
+                              onChange={(e) =>
+                                updateVariable(
+                                  id,
+                                  i,
+                                  "defaultValue",
+                                  e.target.value,
+                                )
+                              }
+                              className="w-20 bg-white border border-gray-200 rounded text-[10px] font-bold px-1 outline-none"
+                              placeholder="default..."
                             />
                           ) : (
                             <button
@@ -450,15 +465,19 @@ function ListsTab() {
               <div className="space-y-2 pt-3 border-t border-gray-100 shrink-0 bg-white">
                 {isVarList && (
                   <div className="flex gap-1 p-0.5 bg-gray-100 rounded-md">
-                    {["boolean", "number"].map((t) => (
+                    {["boolean", "number", "string"].map((t) => (
                       <button
                         key={t}
                         onClick={() =>
                           setSelectedTypes((prev) => ({ ...prev, [id]: t }))
                         }
-                        className={`flex-grow py-1 rounded text-[8px] font-black uppercase transition-all ${currentType === t ? "bg-white text-orange-600 shadow-sm" : "text-gray-400"}`}
+                        className={`flex-grow py-1 rounded text-[8px] font-black uppercase transition-all ${
+                          currentType === t
+                            ? "bg-white text-orange-600 shadow-sm"
+                            : "text-gray-400"
+                        }`}
                       >
-                        {t}
+                        {t === "string" ? "text" : t}
                       </button>
                     ))}
                   </div>
@@ -507,10 +526,21 @@ function NewListForm({ onComplete, onCancel }) {
 
   const handleSubmit = () => {
     if (!isValid) return;
+
     const processedItems =
       type === "variable"
-        ? items.map((i) => ({ name: i.val, type: i.t }))
+        ? items.map((i) => {
+            let defVal = false;
+            if (i.t === "number") defVal = 0;
+            if (i.t === "string") defVal = "";
+            return {
+              name: i.val,
+              type: i.t,
+              defaultValue: defVal,
+            };
+          })
         : items.map((i) => i.val);
+
     onComplete(name.replace(/\s+/g, "_").toLowerCase(), type, processedItems);
   };
 
@@ -592,6 +622,7 @@ function NewListForm({ onComplete, onCancel }) {
                 >
                   <option value="boolean">Bool</option>
                   <option value="number">Num</option>
+                  <option value="string">Text</option>
                 </select>
               )}
             </div>
@@ -610,7 +641,7 @@ function NewListForm({ onComplete, onCancel }) {
 }
 
 /* ════════════════════════════════════════════
-   REGISTRY TAB
+   REGISTRY TAB (REPLACED)
 ════════════════════════════════════════════ */
 function RegistryTab() {
   const {
@@ -638,7 +669,7 @@ function RegistryTab() {
     setNewNpcName("");
   };
 
-  // NEW: Logical Reset when changing variables
+  // Logical Reset when changing variables
   const handleVariableChange = (npcId, ruleId, varName) => {
     const varDef = allAvailableVariables.find((v) => v.name === varName);
     let defaultVal = "true";
