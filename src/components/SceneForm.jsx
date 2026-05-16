@@ -6,7 +6,7 @@ import FlagGroup from "./FlagGroup";
 import { useLoreStore } from "../store";
 
 export default function SceneForm({ node }) {
-  const { schema, updateNodeData } = useLoreStore();
+  const { schema, updateNodeData } = useLoreStore(); 
 
   return (
     <div className="space-y-6">

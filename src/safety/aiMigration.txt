@@ -1,0 +1,961 @@
+# LoreFlow Development & Architecture Brief
+
+### System Context & State Rehydration Manifest
+
+This document serves as the absolute source of truth for the **LoreFlow** engine architecture. It contains the data contracts, state mutations, and validation rules established across all development phases. Provide this document to any incoming development session to instantly rehydrate the full structural context of the system.
+
+---
+
+## 1. Executive Summary & Project Status
+
+LoreFlow is a high-fidelity, node-based narrative design tool built on React Flow and Zustand. It bridges the gap between complex interactive branching screenplays and game engines by generating deterministic, type-safe data bundles.
+
+* **Current Phase:** Phase 4 (Export Pipeline & Localization Engine) — Completed.
+* **Stability Index:** High. Core store actions have been completely isolated from side effects, direct mutations, and high-frequency rendering cascades.
+* **Compilation Strategy:** Single-bundle structure tracking multiple sub-graphs, a prioritized runtime routing table (`conversationRegistry`), global metadata flags, and a decoupled localization string matrix.
+
+---
+
+## 2. Core Node Data Contracts (Payload Schema)
+
+To maintain structural integrity across different processing instances, all canvas node insertions must explicitly adhere to the following `node.data` JSON payload contracts:
+
+### Scene Node (`node.type === "scene"`)
+
+The foundational element for linear and branching narrative tracks.
+
+```json
+{
+  "id": "uuid-v4-string",
+  "type": "scene",
+  "position": { "x": 100, "y": 100 },
+  "data": {
+    "title": "Scene Title String",
+    "background": "Asset_Key_String",
+    "music": "BGM_Key_String",
+    "dialogueLines": [
+      {
+        "speaker": "Character_Name_String",
+        "text": "Dialogue line text content.",
+        "portrait": "Expression_Key_String",
+        "sound": "SFX_Key_String"
+      }
+    ],
+    "choices": [
+      {
+        "id": "choice-uuid-handle",
+        "text": "Player choice display text string."
+      }
+    ],
+    "flags": [
+      {
+        "key": "Variable_Name_String",
+        "op": "=",
+        "value": true
+      }
+    ]
+  }
+}
+
+```
+
+### Logic Node (`node.type === "logic"`)
+
+Conditional switch block driving runtime data evaluation branches. Requires execution lines bound directly to explicit `"true"` and `"false"` handles.
+
+```json
+{
+  "id": "uuid-v4-string",
+  "type": "logic",
+  "data": {
+    "logicalOperator": "AND",
+    "conditions": [
+      {
+        "id": "condition-uuid",
+        "check_flag": "Variable_Name_String",
+        "operator": "==",
+        "value": "true"
+      }
+    ]
+  }
+}
+
+```
+
+### Jump Node (`node.type === "jump"`)
+
+A cross-graph transition portal that breaks execution out of the current graph canvas and redirects the runtime execution thread into a separate graph namespace.
+
+```json
+{
+  "id": "uuid-v4-string",
+  "type": "jump",
+  "data": {
+    "targetGraph": "Target_Graph_Name_String"
+  }
+}
+
+```
+
+### Collection Node (`node.type === "collection"`)
+
+A macro visual grouping asset designed to organize clusters of nodes.
+
+```json
+{
+  "id": "uuid-v4-string",
+  "type": "collection",
+  "zIndex": -50,
+  "style": { "width": 500, "height": 400 },
+  "data": {
+    "title": "Chapter Workspace Name",
+    "color": "#6366f1"
+  }
+}
+
+```
+
+---
+
+## 3. Hardened Store Infrastructure (`store.js`)
+
+The complete, refactored Zustand store implementation configuration:
+
+```javascript
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import { addEdge, applyNodeChanges, applyEdgeChanges } from "reactflow";
+
+// --- UTILS & FORMATTERS ---
+const getAbsolutePos = (node, nodes, depth = 0) => {
+  if (!node.parentId || depth > 5) return node.position;
+  const parent = nodes.find((n) => n.id === node.parentId);
+  if (!parent) return node.position;
+  const parentPos = getAbsolutePos(parent, nodes, depth + 1);
+  return {
+    x: node.position.x + parentPos.x,
+    y: node.position.y + parentPos.y,
+  };
+};
+
+const createEmptyGraph = () => ({
+  nodes: [],
+  edges: [],
+  viewport: { x: 0, y: 0, zoom: 1 },
+});
+
+const escapeCSV = (text) => {
+  if (!text) return '""';
+  const escaped = text.toString().replace(/"/g, '""');
+  return `"${escaped}"`;
+};
+
+export const useLoreStore = create(
+  persist(
+    (set, get) => ({
+      // --- STATE INITIALIZATION ---
+      projectName: "Untitled Lore",
+      activeGraph: "Main Story",
+      startGraph: "Main Story",
+      graphs: { "Main Story": createEmptyGraph() },
+      graphFolders: [],
+      activeFolder: null,
+      conversationRegistry: {},
+      editingNodeId: null,
+
+      // --- LOCALIZATION HOOKS ---
+      languages: ["en"],
+      currentLanguage: "en",
+      locales: { en: {} },
+
+      // --- BLUEPRINT LAYOUT CONFIGURATION ---
+      schema: {
+        nodeFields: [
+          { id: "title", label: "Scene Title", type: "text" },
+          { id: "background", label: "Background Image", type: "list", listId: "backgrounds" },
+          { id: "flags", label: "Scene Flags", type: "flag_group" },
+          { id: "music", label: "BGM Track", type: "list", listId: "music_tracks" },
+          { id: "dialogueLines", label: "Dialogue Sequence", type: "sequence" },
+          { id: "choices", label: "Branching Choices", type: "choice_list" },
+        ],
+        sequenceFields: [
+          { id: "speaker", label: "Speaker", type: "list", listId: "characters" },
+          { id: "text", label: "Dialogue Text", type: "textarea" },
+          { id: "portrait", label: "Portrait/Expression", type: "list", listId: "expressions" },
+          { id: "sound", label: "SFX", type: "list", listId: "sfx_list" },
+        ],
+        logicFields: [
+          { id: "check_flag", label: "Target Flag", type: "list", listId: "available_flags" },
+          { id: "operator", label: "Comparison", type: "list", listId: "operators" },
+          { id: "value", label: "Value to Check", type: "text" },
+        ],
+      },
+
+      listMetadata: {
+        characters: "string",
+        backgrounds: "string",
+        music_tracks: "string",
+        expressions: "string",
+        sfx_list: "string",
+        variables: "variable",
+        operators: "string",
+      },
+
+      lists: {
+        characters: ["Narrator", "Protagonist", "Mysterious Stranger"],
+        backgrounds: ["Tavern_Night", "Forest_Path", "Castle_Gate"],
+        music_tracks: ["Peaceful_Town", "Battle_Theme", "Suspense_Ambient"],
+        expressions: ["Neutral", "Happy", "Angry", "Surprised"],
+        sfx_list: ["Door_Creek", "Sword_Clash", "Gold_Coins"],
+        variables: [
+          { name: "game_started", type: "boolean", defaultValue: false },
+          { name: "gold_amount", type: "number", defaultValue: 0 },
+        ],
+        operators: ["==", "!=", ">", "<", ">=", "<="],
+      },
+
+      // --- STRUCTURAL ACTION HANDLERS ---
+      updateProjectName: (name) => set({ projectName: name }),
+      setActiveGraph: (name) => set({ activeGraph: name, editingNodeId: null }),
+      setStartGraph: (name) => set({ startGraph: name }),
+      setEditingNode: (id) => set({ editingNodeId: id }),
+
+      addGraph: (name = "New Conversation") => {
+        const graphs = get().graphs;
+        let uniqueName = name;
+        let counter = 1;
+        while (graphs[uniqueName]) uniqueName = `${name} ${counter++}`;
+        set((state) => ({
+          graphs: { ...state.graphs, [uniqueName]: createEmptyGraph() },
+          activeGraph: uniqueName,
+        }));
+      },
+
+      renameGraph: (oldName, newName) => {
+        if (oldName === newName || !newName.trim()) return;
+        set((state) => {
+          const newGraphs = { ...state.graphs };
+          newGraphs[newName] = newGraphs[oldName];
+          delete newGraphs[oldName];
+
+          const newRegistry = { ...state.conversationRegistry };
+          Object.keys(newRegistry).forEach((npcId) => {
+            newRegistry[npcId] = newRegistry[npcId].map((rule) =>
+              rule.graph === oldName ? { ...rule, graph: newName } : rule,
+            );
+          });
+
+          Object.keys(newGraphs).forEach((key) => {
+            newGraphs[key].nodes = newGraphs[key].nodes.map((node) => {
+              if (node.type === "jump" && node.data.targetGraph === oldName) {
+                return { ...node, data: { ...node.data, targetGraph: newName } };
+              }
+              return node;
+            });
+          });
+
+          const newLocales = { ...state.locales };
+          Object.keys(newLocales).forEach((lang) => {
+            const updatedBlock = {};
+            Object.keys(newLocales[lang]).forEach((key) => {
+              if (key.startsWith(`${oldName}.`)) {
+                updatedBlock[`${newName}.${key.slice(oldName.length + 1)}`] = newLocales[lang][key];
+              } else {
+                updatedBlock[key] = newLocales[lang][key];
+              }
+            });
+            newLocales[lang] = updatedBlock;
+          });
+
+          return {
+            graphs: newGraphs,
+            conversationRegistry: newRegistry,
+            locales: newLocales,
+            activeGraph: state.activeGraph === oldName ? newName : state.activeGraph,
+          };
+        });
+      },
+
+      // --- REACT FLOW COORDINATION ENGINE ---
+      onNodesChange: (changes) => {
+        const { activeGraph, graphs } = get();
+        set({
+          graphs: {
+            ...graphs,
+            [activeGraph]: {
+              ...graphs[activeGraph],
+              nodes: applyNodeChanges(changes, graphs[activeGraph].nodes),
+            },
+          },
+        });
+      },
+
+      onEdgesChange: (changes) => {
+        const { activeGraph, graphs } = get();
+        set({
+          graphs: {
+            ...graphs,
+            [activeGraph]: {
+              ...graphs[activeGraph],
+              edges: applyEdgeChanges(changes, graphs[activeGraph].edges),
+            },
+          },
+        });
+      },
+
+      onConnect: (connection) => {
+        const { activeGraph, graphs } = get();
+        const currentGraph = graphs[activeGraph];
+        const sourceNode = currentGraph.nodes.find((n) => n.id === connection.source);
+        if (!sourceNode) return;
+
+        let edgeStyle = { strokeWidth: 2, stroke: "#3b82f6" };
+        let edgeLabel = "";
+        let animated = false;
+
+        if (sourceNode.type === "logic") {
+          animated = true;
+          if (connection.sourceHandle === "true") {
+            edgeStyle.stroke = "#22c55e";
+            edgeLabel = "TRUE";
+          } else if (connection.sourceHandle === "false") {
+            edgeStyle.stroke = "#ef4444";
+            edgeLabel = "FALSE";
+          } else {
+            return; // Disallow invalid, unassigned outputs
+          }
+        } else if (sourceNode.type === "scene" && sourceNode.data.choices) {
+          const choice = sourceNode.data.choices.find((c) => c.id === connection.sourceHandle);
+          if (choice) edgeLabel = choice.text;
+        }
+
+        const newEdge = {
+          ...connection,
+          id: `e-${crypto.randomUUID()}`,
+          label: edgeLabel,
+          animated,
+          style: edgeStyle,
+          labelStyle: { fill: edgeStyle.stroke, fontWeight: 800, fontSize: 10 },
+          labelBgStyle: { fill: "#fff", fillOpacity: 0.9 },
+        };
+
+        set((state) => ({
+          graphs: {
+            ...state.graphs,
+            [activeGraph]: { ...currentGraph, edges: addEdge(newEdge, currentGraph.edges) },
+          },
+        }));
+      },
+
+      addNode: (type) => {
+        const { activeGraph } = get();
+        const id = crypto.randomUUID();
+        const defaultLogicData = {
+          logicalOperator: "AND",
+          conditions: [{ id: crypto.randomUUID(), check_flag: "", operator: "==", value: "true" }],
+        };
+
+        const newNode = {
+          id,
+          type,
+          position: { x: 100, y: 100 },
+          zIndex: type === "collection" ? -10 : 10,
+          data:
+            type === "scene"
+              ? { title: "New Scene", dialogueLines: [], choices: [], flags: [] }
+              : type === "logic"
+                ? defaultLogicData
+                : type === "jump"
+                  ? { targetGraph: "" }
+                  : {},
+        };
+
+        set((state) => {
+          const currentNodes = state.graphs[activeGraph].nodes;
+          const filteredNodes = type === "start" ? currentNodes.filter((n) => n.type !== "start") : currentNodes;
+          return {
+            graphs: {
+              ...state.graphs,
+              [activeGraph]: { ...state.graphs[activeGraph], nodes: [...filteredNodes, newNode] },
+            },
+          };
+        });
+      },
+
+      deleteNode: (nodeId) => {
+        const { activeGraph, graphs } = get();
+        const currentGraph = graphs[activeGraph];
+        const nodeToDelete = currentGraph.nodes.find((n) => n.id === nodeId);
+
+        if (nodeToDelete?.type === "collection") {
+          const children = currentGraph.nodes.filter((n) => n.parentId === nodeId);
+          const deleteContent = children.length > 0 ? window.confirm("Delete its contents too?\n\nOK = delete everything | Cancel = keep nodes") : false;
+
+          set((state) => {
+            let nextNodes;
+            if (!deleteContent) {
+              const collectionAbsPos = getAbsolutePos(nodeToDelete, currentGraph.nodes);
+              nextNodes = currentGraph.nodes
+                .filter((n) => n.id !== nodeId)
+                .map((n) =>
+                  n.parentId === nodeId
+                    ? {
+                        ...n,
+                        parentId: undefined,
+                        extent: undefined,
+                        position: { x: n.position.x + collectionAbsPos.x, y: n.position.y + collectionAbsPos.y },
+                      }
+                    : n,
+                );
+            } else {
+              const childIds = children.map((c) => c.id);
+              nextNodes = currentGraph.nodes.filter((n) => n.id !== nodeId && !childIds.includes(n.id));
+            }
+
+            return {
+              graphs: {
+                ...state.graphs,
+                [activeGraph]: {
+                  ...currentGraph,
+                  nodes: nextNodes,
+                  edges: currentGraph.edges.filter((e) => e.source !== nodeId && e.target !== nodeId),
+                },
+              },
+              editingNodeId: state.editingNodeId === nodeId ? null : state.editingNodeId,
+            };
+          });
+          return;
+        }
+
+        set((state) => ({
+          graphs: {
+            ...state.graphs,
+            [activeGraph]: {
+              ...currentGraph,
+              nodes: currentGraph.nodes.filter((n) => n.id !== nodeId),
+              edges: currentGraph.edges.filter((e) => e.source !== nodeId && e.target !== nodeId),
+            },
+          },
+          editingNodeId: state.editingNodeId === nodeId ? null : state.editingNodeId,
+        }));
+      },
+
+      // --- MACRO DESIGN SYSTEM CLEANUP ENGINES ---
+      addToList: (listId, newItem) =>
+        set((state) => {
+          let finalItem = newItem;
+          if (state.listMetadata[listId] === "variable" && typeof newItem === "object") {
+            let defVal = false;
+            if (newItem.type === "number") defVal = 0;
+            if (newItem.type === "string") defVal = "";
+            finalItem = { ...newItem, defaultValue: defVal };
+          }
+          return { lists: { ...state.lists, [listId]: [...(state.lists[listId] || []), finalItem] } };
+        }),
+
+      removeItemFromList: (listId, index) => {
+        set((state) => {
+          const itemToDelete = state.lists[listId][index];
+          const isVariable = state.listMetadata[listId] === "variable";
+          const deleteName = isVariable ? itemToDelete.name : itemToDelete;
+
+          const newList = state.lists[listId].filter((_, i) => i !== index);
+          const affectedNodeFields = state.schema.nodeFields.filter((f) => f.listId === listId).map((f) => f.id);
+          const affectedSeqFields = state.schema.sequenceFields.filter((f) => f.listId === listId).map((f) => f.id);
+          const updatedGraphs = { ...state.graphs };
+
+          Object.keys(updatedGraphs).forEach((gKey) => {
+            let graphHasChanges = false;
+            const updatedNodes = updatedGraphs[gKey].nodes.map((node) => {
+              let nodeDataHasChanges = false;
+              let newData = { ...node.data };
+
+              affectedNodeFields.forEach((fieldId) => {
+                if (newData[fieldId] === deleteName) {
+                  newData[fieldId] = "";
+                  nodeDataHasChanges = true;
+                }
+              });
+
+              if (newData.dialogueLines) {
+                let sequenceHasChanges = false;
+                const updatedLines = newData.dialogueLines.map((line) => {
+                  let lineHasChanges = false;
+                  let newLine = { ...line };
+                  affectedSeqFields.forEach((fieldId) => {
+                    if (newLine[fieldId] === deleteName) {
+                      newLine[fieldId] = "";
+                      lineHasChanges = true;
+                    }
+                  });
+                  if (lineHasChanges) sequenceHasChanges = true;
+                  return newLine;
+                });
+                if (sequenceHasChanges) {
+                  newData.dialogueLines = updatedLines;
+                  nodeDataHasChanges = true;
+                }
+              }
+
+              if (newData.choices) {
+                let choicesHasChanges = false;
+                const updatedChoices = newData.choices.map((choice) => {
+                  if (choice.text === deleteName) {
+                    choicesHasChanges = true;
+                    return { ...choice, text: "" };
+                  }
+                  return choice;
+                });
+                if (choicesHasChanges) {
+                  newData.choices = updatedChoices;
+                  nodeDataHasChanges = true;
+                }
+              }
+
+              if (isVariable) {
+                if (node.type === "logic" && newData.conditions) {
+                  const originalLength = newData.conditions.length;
+                  newData.conditions = newData.conditions.filter((c) => c.check_flag !== deleteName);
+                  if (newData.conditions.length !== originalLength) nodeDataHasChanges = true;
+                }
+                if (newData.flags) {
+                  const originalLength = newData.flags.length;
+                  newData.flags = newData.flags.filter((f) => f.key !== deleteName);
+                  if (newData.flags.length !== originalLength) nodeDataHasChanges = true;
+                }
+              }
+
+              if (nodeDataHasChanges) graphHasChanges = true;
+              return nodeDataHasChanges ? { ...node, data: newData } : node;
+            });
+
+            if (graphHasChanges) updatedGraphs[gKey] = { ...updatedGraphs[gKey], nodes: updatedNodes };
+          });
+
+          const newRegistry = { ...state.conversationRegistry };
+          if (isVariable) {
+            Object.keys(newRegistry).forEach((npcId) => {
+              newRegistry[npcId] = newRegistry[npcId].filter((rule) => !rule.condition || rule.condition.variable !== deleteName);
+            });
+          }
+
+          return { lists: { ...state.lists, [listId]: newList }, graphs: updatedGraphs, conversationRegistry: newRegistry };
+        });
+      },
+
+      updateItemInList: (listId, index, newValue) => {
+        set((state) => {
+          const oldValue = state.lists[listId][index];
+          if (oldValue === newValue) return state;
+
+          const newList = [...(state.lists[listId] || [])];
+          newList[index] = newValue;
+
+          let updatedGraphs = { ...state.graphs };
+          const affectedNodeFields = state.schema.nodeFields.filter((f) => f.listId === listId).map((f) => f.id);
+          const affectedSeqFields = state.schema.sequenceFields.filter((f) => f.listId === listId).map((f) => f.id);
+
+          Object.keys(updatedGraphs).forEach((gKey) => {
+            let graphHasChanges = false;
+            const updatedNodes = updatedGraphs[gKey].nodes.map((node) => {
+              let nodeDataHasChanges = false;
+              let newData = { ...node.data };
+
+              affectedNodeFields.forEach((fieldId) => {
+                if (newData[fieldId] === oldValue) {
+                  newData[fieldId] = newValue;
+                  nodeDataHasChanges = true;
+                }
+              });
+
+              if (newData.dialogueLines) {
+                let sequenceHasChanges = false;
+                const updatedLines = newData.dialogueLines.map((line) => {
+                  let lineHasChanges = false;
+                  let newLine = { ...line };
+                  affectedSeqFields.forEach((fieldId) => {
+                    if (newLine[fieldId] === oldValue) {
+                      newLine[fieldId] = newValue;
+                      lineHasChanges = true;
+                    }
+                  });
+                  if (lineHasChanges) sequenceHasChanges = true;
+                  return newLine;
+                });
+                if (sequenceHasChanges) {
+                  newData.dialogueLines = updatedLines;
+                  nodeDataHasChanges = true;
+                }
+              }
+
+              if (node.type === "logic" && newData.conditions) {
+                let logicHasChanges = false;
+                const updatedConditions = newData.conditions.map((c) => {
+                  if (c.value === oldValue) {
+                    logicHasChanges = true;
+                    return { ...c, value: newValue };
+                  }
+                  return c;
+                });
+                if (logicHasChanges) {
+                  newData.conditions = updatedConditions;
+                  nodeDataHasChanges = true;
+                }
+              }
+
+              if (newData.flags) {
+                let flagsHasChanges = false;
+                const updatedFlags = newData.flags.map((f) => {
+                  if (f.value === oldValue) {
+                    flagsHasChanges = true;
+                    return { ...f, value: newValue };
+                  }
+                  return f;
+                });
+                if (flagsHasChanges) {
+                  newData.flags = updatedFlags;
+                  nodeDataHasChanges = true;
+                }
+              }
+
+              if (newData.choices) {
+                let choicesHasChanges = false;
+                const updatedChoices = newData.choices.map((c) => {
+                  if (c.text === oldValue) {
+                    choicesHasChanges = true;
+                    return { ...c, text: newValue };
+                  }
+                  return c;
+                });
+                if (choicesHasChanges) {
+                  newData.choices = updatedChoices;
+                  nodeDataHasChanges = true;
+                }
+              }
+
+              if (nodeDataHasChanges) graphHasChanges = true;
+              return nodeDataHasChanges ? { ...node, data: newData } : node;
+            });
+
+            if (graphHasChanges) updatedGraphs[gKey] = { ...updatedGraphs[gKey], nodes: updatedNodes };
+          });
+
+          return { lists: { ...state.lists, [listId]: newList }, graphs: updatedGraphs };
+        });
+      },
+
+      updateVariable: (listId, index, field, value) => {
+        set((state) => {
+          const newList = [...(state.lists[listId] || [])];
+          const oldVar = newList[index];
+          const oldVarName = oldVar.name;
+          const newVarName = field === "name" ? value : oldVarName;
+
+          const updatedVar = { ...oldVar, [field]: value };
+          if (field === "type") {
+            if (value === "number") updatedVar.defaultValue = 0;
+            else if (value === "string") updatedVar.defaultValue = "";
+            else updatedVar.defaultValue = false;
+          }
+          newList[index] = updatedVar;
+
+          const newRegistry = { ...state.conversationRegistry };
+          let updatedGraphs = { ...state.graphs };
+          const hasRenamed = field === "name" && oldVarName !== newVarName;
+          const hasTypeChanged = field === "type" && oldVar.type !== value;
+
+          if (hasRenamed) {
+            Object.keys(newRegistry).forEach((npcId) => {
+              newRegistry[npcId] = newRegistry[npcId].map((r) =>
+                r.condition?.variable === oldVarName ? { ...r, condition: { ...r.condition, variable: newVarName } } : r,
+              );
+            });
+
+            Object.keys(updatedGraphs).forEach((gKey) => {
+              updatedGraphs[gKey].nodes = updatedGraphs[gKey].nodes.map((node) => {
+                let newData = { ...node.data };
+                let changed = false;
+                if (node.type === "logic" && newData.conditions) {
+                  newData.conditions = newData.conditions.map((c) => c.check_flag === oldVarName ? { ...c, check_flag: newVarName } : c);
+                  changed = true;
+                }
+                if (newData.flags) {
+                  newData.flags = newData.flags.map((f) => f.key === oldVarName ? { ...f, key: newVarName } : f);
+                  changed = true;
+                }
+                return changed ? { ...node, data: newData } : node;
+              });
+            });
+          }
+
+          if (hasTypeChanged) {
+            let defaultOp = "==";
+            let defaultRegVal = value === "number" ? "0" : value === "string" ? "" : "true";
+
+            Object.keys(newRegistry).forEach((npcId) => {
+              newRegistry[npcId] = newRegistry[npcId].map((r) =>
+                r.condition?.variable === oldVarName ? { ...r, condition: { ...r.condition, op: defaultOp, value: defaultRegVal } } : r,
+              );
+            });
+
+            Object.keys(updatedGraphs).forEach((gKey) => {
+              let graphChanged = false;
+              const updatedNodes = updatedGraphs[gKey].nodes.map((node) => {
+                let nodeChanged = false;
+                let newData = { ...node.data };
+
+                if (node.type === "logic" && newData.conditions) {
+                  newData.conditions = newData.conditions.map((c) => {
+                    if (c.check_flag === oldVarName) {
+                      nodeChanged = true;
+                      return { ...c, operator: defaultOp, value: value === "number" ? 0 : defaultRegVal };
+                    }
+                    return c;
+                  });
+                }
+
+                if (newData.flags) {
+                  newData.flags = newData.flags.map((f) => {
+                    if (f.key === oldVarName) {
+                      nodeChanged = true;
+                      return { ...f, op: "=", value: value === "number" ? 0 : value === "string" ? "" : true };
+                    }
+                    return f;
+                  });
+                }
+
+                if (nodeChanged) graphChanged = true;
+                return nodeChanged ? { ...node, data: newData } : node;
+              });
+              if (graphChanged) updatedGraphs[gKey] = { ...updatedGraphs[gKey], nodes: updatedNodes };
+            });
+          }
+
+          return { lists: { ...state.lists, [listId]: newList }, conversationRegistry: newRegistry, graphs: updatedGraphs };
+        });
+      },
+
+      groupSelectedNodes: (baseColor = "#6366f1") => {
+        const { activeGraph, graphs } = get();
+        const currentGraph = graphs[activeGraph];
+        const selectedNodes = currentGraph.nodes.filter((n) => n.selected && n.type !== "collection");
+        if (selectedNodes.length < 1) return;
+
+        const title = window.prompt("Collection Name:", "New Chapter");
+        if (!title) return;
+
+        const absPositions = selectedNodes.map((n) => getAbsolutePos(n, currentGraph.nodes));
+        const minX = Math.min(...absPositions.map((p) => p.x));
+        const minY = Math.min(...absPositions.map((p) => p.y));
+        const maxX = Math.max(...absPositions.map((p) => p.x + 260));
+        const maxY = Math.max(...absPositions.map((p) => p.y + 200));
+        const padding = 60;
+        const groupId = crypto.randomUUID();
+
+        const groupNode = {
+          id: groupId,
+          type: "collection",
+          position: { x: minX - padding, y: minY - padding },
+          zIndex: -50,
+          style: { width: maxX - minX + padding * 2, height: maxY - minY + padding * 2 },
+          data: { title, color: baseColor },
+        };
+
+        const nextNodes = currentGraph.nodes.map((node) => {
+          if (node.selected && node.type !== "collection") {
+            const abs = getAbsolutePos(node, currentGraph.nodes);
+            return {
+              ...node,
+              parentId: groupId,
+              extent: "parent",
+              zIndex: 10,
+              position: { x: abs.x - (minX - padding), y: abs.y - (minY - padding) },
+              selected: false,
+            };
+          }
+          return node;
+        });
+
+        set({ graphs: { ...get().graphs, [activeGraph]: { ...currentGraph, nodes: [groupNode, ...nextNodes] } } });
+      },
+
+      // --- DECOUPLED HIGH-SPEED VIEWPORT MONITOR ---
+      onViewportChange: (viewport) => {
+        const { activeGraph, graphs } = get();
+        if (!graphs[activeGraph]) return;
+        set((state) => ({
+          graphs: {
+            ...state.graphs,
+            [activeGraph]: {
+              ...state.graphs[activeGraph],
+              viewport: { x: viewport.x, y: viewport.y, zoom: viewport.zoom },
+            },
+          },
+        }));
+      },
+
+      // --- EXPORT STRING EXTRACTOR (CSV LOCALIZATION) ---
+      exportStringsCSV: () => {
+        const { graphs, listMetadata, lists, projectName } = get();
+        let csvContent = "key,speaker,original_text,translation\n";
+
+        const variableListIds = Object.keys(listMetadata || {}).filter((k) => listMetadata[k] === "variable");
+        const allAvailableVars = variableListIds.flatMap((k) => lists[k] || []);
+
+        Object.entries(graphs).forEach(([graphName, graphData]) => {
+          graphData.nodes.forEach((node) => {
+            if (node.type === "scene" && node.data) {
+              if (Array.isArray(node.data.dialogueLines)) {
+                node.data.dialogueLines.forEach((line, idx) => {
+                  csvContent += `${escapeCSV(`${graphName}.${node.id}.line_${idx}`)},${escapeCSV(line.speaker || "Narrator")},${escapeCSV(line.text || "")},""\n`;
+                });
+              }
+              if (Array.isArray(node.data.choices)) {
+                node.data.choices.forEach((c, idx) => {
+                  csvContent += `${escapeCSV(`${graphName}.${node.id}.choice_${idx}`)},"Player",${escapeCSV(c.text || "")},""\n`;
+                });
+              }
+            }
+            if (node.type === "logic" && node.data && Array.isArray(node.data.conditions)) {
+              node.data.conditions.forEach((cond, idx) => {
+                const target = allAvailableVars.find((v) => v.name === cond.check_flag);
+                if (target && target.type === "string") {
+                  csvContent += `${escapeCSV(`${graphName}.${node.id}.condition_${idx}`)},"Logic_Value",${escapeCSV(cond.value || "")},""\n`;
+                }
+              });
+            }
+            if (node.type === "jump" && node.data && node.data.targetGraph) {
+              csvContent += `${escapeCSV(`${graphName}.${node.id}.targetGraph`)},"Jump_Target",${escapeCSV(node.data.targetGraph)},""\n`;
+            }
+          });
+        });
+
+        triggerDownload(csvContent, `${projectName.toLowerCase().replace(/\s+/g, "_")}_strings.csv`, "text/csv");
+      },
+
+      // --- COMPILED ENGINE BUNDLER (RUNTIME ENGINE JSON) ---
+      exportGameData: () => {
+        const { graphs, lists, listMetadata, projectName, conversationRegistry, locales, startGraph } = get();
+        const exportGraphs = {};
+
+        Object.entries(graphs).forEach(([name, data]) => {
+          const startNode = data.nodes.find((n) => n.type === "start");
+          const startEdge = data.edges.find((e) => e.source === startNode?.id);
+
+          exportGraphs[name] = {
+            startNode: startEdge ? startEdge.target : null,
+            nodes: data.nodes
+              .filter((n) => n.type !== "start")
+              .map((node) => {
+                const nodeEdges = data.edges.filter((e) => e.source === node.id);
+                let nextMapping = nodeEdges.reduce((acc, e) => {
+                  const key = !e.sourceHandle || e.sourceHandle === "default-output" ? "next" : e.sourceHandle;
+                  acc[key] = e.target;
+                  return acc;
+                }, {});
+
+                if (node.type === "logic") {
+                  if (!nextMapping["true"]) nextMapping["true"] = nextMapping["false"] || null;
+                  if (!nextMapping["false"]) nextMapping["false"] = nextMapping["true"] || null;
+                }
+
+                return { id: node.id, type: node.type, data: node.data, next: nextMapping };
+              }),
+          };
+        });
+
+        const compiledVariables = Object.entries(lists)
+          .filter(([id]) => listMetadata[id] === "variable")
+          .reduce((acc, [_, items]) => {
+            items.forEach((v) => { acc[v.name] = { type: v.type, default: v.defaultValue }; });
+            return acc;
+          }, {});
+
+        const bundle = {
+          version: "2.0",
+          metadata: { projectName, exportedAt: new Date().toISOString(), startGraph },
+          registry: conversationRegistry,
+          locales,
+          variables: compiledVariables,
+          graphs: exportGraphs,
+        };
+
+        triggerDownload(JSON.stringify(bundle, null, 2), `${projectName.replace(/\s+/g, "_").toLowerCase()}_export.json`, "application/json");
+      },
+
+      exportProject: () => {
+        const { graphs, lists, schema, projectName, conversationRegistry, graphFolders, startGraph, languages, currentLanguage, locales } = get();
+        const projectData = { type: "LORE_PROJECT_FILE", version: "2.0.0", projectName, startGraph, graphFolders, conversationRegistry, graphs, lists, schema, languages, currentLanguage, locales };
+        triggerDownload(JSON.stringify(projectData, null, 2), `${projectName.toLowerCase().replace(/\s+/g, "_")}.lore`, "application/json");
+      },
+
+      importProject: (jsonData) => {
+        try {
+          const data = JSON.parse(jsonData);
+          if (data.type !== "LORE_PROJECT_FILE") return alert("Invalid file format.");
+
+          const rawGraphs = data.graphs || { "Main Story": createEmptyGraph() };
+          const sanitizedGraphs = {};
+
+          Object.entries(rawGraphs).forEach(([name, gObj]) => {
+            sanitizedGraphs[name] = {
+              nodes: Array.isArray(gObj?.nodes) ? gObj.nodes : [],
+              edges: Array.isArray(gObj?.edges) ? gObj.edges : [],
+              viewport: gObj?.viewport && typeof gObj.viewport === "object"
+                ? { x: Number(gObj.viewport.x) || 0, y: Number(gObj.viewport.y) || 0, zoom: Number(gObj.viewport.zoom) || 1 }
+                : { x: 0, y: 0, zoom: 1 },
+              folder: typeof gObj?.folder === "string" ? gObj.folder : null,
+            };
+          });
+
+          set({
+            projectName: typeof data.projectName === "string" ? data.projectName : "Restored Project",
+            startGraph: typeof data.startGraph === "string" ? data.startGraph : Object.keys(sanitizedGraphs)[0],
+            graphs: sanitizedGraphs,
+            lists: data.lists && typeof data.lists === "object" ? data.lists : get().lists,
+            schema: data.schema && typeof data.schema === "object" ? data.schema : get().schema,
+            graphFolders: Array.isArray(data.graphFolders) ? data.graphFolders : [],
+            conversationRegistry: data.conversationRegistry && typeof data.conversationRegistry === "object" ? data.conversationRegistry : {},
+            languages: Array.isArray(data.languages) ? data.languages : ["en"],
+            currentLanguage: typeof data.currentLanguage === "string" ? data.currentLanguage : "en",
+            locales: data.locales && typeof data.locales === "object" ? data.locales : { en: {} },
+            activeGraph: Object.keys(sanitizedGraphs)[0],
+            editingNodeId: null,
+          });
+          alert("Project successfully validated and imported!");
+        } catch (e) {
+          alert("Fatal error parsing file data.");
+        }
+      },
+    }),
+    { name: "lore-engine-storage", storage: createJSONStorage(() => localStorage) },
+  ),
+);
+
+function triggerDownload(content, filename, contentType = "application/json") {
+  const blob = new Blob([content], { type: contentType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+```
+
+---
+
+## 4. Localization File Format Reference (CSV)
+
+When pulling strings from the project via `exportStringsCSV`, the exporter aggregates your data nodes into a standard spreadsheet layout. Translators only manipulate the final column (`translation`), preserving your key namespaces across rebuilds:
+
+| key | speaker | original_text | translation |
+| --- | --- | --- | --- |
+| `Main_Story.node_a1.line_0` | `Guard` | *“Halt! Who goes there?”* | `""` |
+| `Main_Story.node_a1.line_1` | `Guard` | *“State your business.”* | `""` |
+| `Main_Story.node_a1.choice_0` | `Player` | *“I am a merchant looking for shelter.”* | `""` |
+| `Main_Story.node_b4.condition_0` | `Logic_Value` | *“open_sesame”* | `""` |
+| `Main_Story.node_c2.targetGraph` | `Jump_Target` | *“Tavern_Interior”* | `""` |
