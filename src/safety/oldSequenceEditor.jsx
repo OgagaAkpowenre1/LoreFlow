@@ -1,0 +1,1636 @@
+// import React, { useState, useEffect, useRef } from "react";
+// import { createPortal } from "react-dom"; // Added for global viewport escape velocity
+// import { useLoreStore } from "../store";
+// import SmartInput from "./SmartInput";
+// import {
+//   Plus,
+//   Trash2,
+//   ChevronRight,
+//   MessageSquare,
+//   X,
+//   Sliders,
+// } from "lucide-react";
+
+// export default function SequenceEditor({ nodeId, lines = [] }) {
+//   const { schema, lists, updateNodeData } = useLoreStore();
+//   const [activeIndex, setActiveIndex] = useState(null);
+
+//   const listScrollContainerRef = useRef(null);
+//   const availableVariables = lists.variables || [];
+
+//   // Smooth auto-scroll anchor trigger for list expansions
+//   useEffect(() => {
+//     if (listScrollContainerRef.current) {
+//       listScrollContainerRef.current.scrollTo({
+//         top: listScrollContainerRef.current.scrollHeight,
+//         behavior: "smooth",
+//       });
+//     }
+//   }, [lines.length]);
+
+//   // Core update dispatch wrapper
+//   const syncDialogueLinesWithStore = (newLines) => {
+//     const { activeGraph, graphs } = useLoreStore.getState();
+//     const node = graphs[activeGraph].nodes.find((n) => n.id === nodeId);
+//     if (!node) return;
+
+//     updateNodeData(nodeId, {
+//       ...node.data,
+//       dialogueLines: newLines,
+//     });
+//   };
+
+//   const updateLine = (index, fieldId, value) => {
+//     const newLines = [...lines];
+//     newLines[index] = { ...newLines[index], [fieldId]: value };
+//     syncDialogueLinesWithStore(newLines);
+//   };
+
+//   const addLine = () => {
+//     const newLine = {
+//       id: crypto.randomUUID(),
+//       speaker: "",
+//       text: "",
+//       portrait: "",
+//       sound: "",
+//       variants: [],
+//     };
+//     syncDialogueLinesWithStore([...lines, newLine]);
+//   };
+
+//   const removeLine = (e, index) => {
+//     e.stopPropagation();
+//     const newLines = lines.filter((_, i) => i !== index);
+//     syncDialogueLinesWithStore(newLines);
+//     if (activeIndex === index) setActiveIndex(null);
+//   };
+
+//   // ── TYPE-SAFE VARIANT OPERATION MANIPULATORS ──
+//   const addVariant = (lineIndex) => {
+//     const newLines = [...lines];
+//     const targetLine = { ...newLines[lineIndex] };
+//     const currentVariants = Array.isArray(targetLine.variants)
+//       ? targetLine.variants
+//       : [];
+
+//     const firstVar = availableVariables[0];
+//     let defaultVal = true;
+//     if (firstVar?.type === "number") defaultVal = 0;
+//     if (firstVar?.type === "string") defaultVal = "";
+
+//     const newVariant = {
+//       id: crypto.randomUUID(),
+//       check_flag: firstVar?.name || "",
+//       operator: "==",
+//       value: defaultVal,
+//       text: "",
+//     };
+
+//     targetLine.variants = [...currentVariants, newVariant];
+//     newLines[lineIndex] = targetLine;
+//     syncDialogueLinesWithStore(newLines);
+//   };
+
+//   const handleVariantVariableChange = (lineIndex, variantIndex, varName) => {
+//     const newLines = [...lines];
+//     const targetLine = { ...newLines[lineIndex] };
+//     const currentVariants = [...targetLine.variants];
+//     const varDef = availableVariables.find((v) => v.name === varName);
+
+//     let newVal = true;
+//     if (varDef?.type === "number") newVal = 0;
+//     if (varDef?.type === "string") newVal = "";
+
+//     currentVariants[variantIndex] = {
+//       ...currentVariants[variantIndex],
+//       check_flag: varName,
+//       operator: "==",
+//       value: newVal,
+//     };
+
+//     targetLine.variants = currentVariants;
+//     newLines[lineIndex] = targetLine;
+//     syncDialogueLinesWithStore(newLines);
+//   };
+
+//   const updateVariant = (lineIndex, variantIndex, fieldId, value) => {
+//     const newLines = [...lines];
+//     const targetLine = { ...newLines[lineIndex] };
+//     const currentVariants = [...targetLine.variants];
+
+//     currentVariants[variantIndex] = {
+//       ...currentVariants[variantIndex],
+//       [fieldId]: value,
+//     };
+
+//     targetLine.variants = currentVariants;
+//     newLines[lineIndex] = targetLine;
+//     syncDialogueLinesWithStore(newLines);
+//   };
+
+//   const removeVariant = (lineIndex, variantIndex) => {
+//     const newLines = [...lines];
+//     const targetLine = { ...newLines[lineIndex] };
+
+//     targetLine.variants = targetLine.variants.filter(
+//       (_, i) => i !== variantIndex,
+//     );
+//     newLines[lineIndex] = targetLine;
+//     syncDialogueLinesWithStore(newLines);
+//   };
+
+//   const currentLine = activeIndex !== null ? lines[activeIndex] : null;
+//   const currentVariants =
+//     currentLine && Array.isArray(currentLine.variants)
+//       ? currentLine.variants
+//       : [];
+
+//   return (
+//     <div className="flex flex-col h-full w-full overflow-hidden relative">
+//       {/* ── SIDEBAR MASTER VIEW LIST ── */}
+//       <div className="flex justify-between items-center bg-white pb-3 shrink-0 sticky top-0 z-10 border-b border-gray-50">
+//         <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+//           Dialogue Sequence ({lines.length})
+//         </span>
+//         <button
+//           onClick={addLine}
+//           className="bg-blue-600 text-white p-1.5 rounded-lg hover:bg-blue-700 hover:scale-105 transition-all shadow-md shadow-blue-100 flex items-center gap-1 text-[10px] font-bold uppercase pl-2 pr-3"
+//         >
+//           <Plus size={14} /> Add Line
+//         </button>
+//       </div>
+
+//       <div
+//         ref={listScrollContainerRef}
+//         className="flex-grow overflow-y-auto space-y-2 pt-2 pr-1 custom-scrollbar w-full overflow-x-hidden pb-12"
+//       >
+//         {lines.map((line, index) => {
+//           const variantsCount = Array.isArray(line.variants)
+//             ? line.variants.length
+//             : 0;
+//           return (
+//             <div
+//               key={line.id || index}
+//               onClick={() => setActiveIndex(index)}
+//               className="group relative bg-gray-50 border border-gray-200 rounded-xl p-3 pl-12 pr-10 cursor-pointer hover:border-blue-400 hover:bg-white hover:shadow-md hover:shadow-gray-50 transition-all min-h-[64px] overflow-hidden select-none"
+//             >
+//               <div className="absolute left-0 top-0 bottom-0 w-8 bg-gray-100/70 border-r flex items-center justify-center text-[10px] font-black text-gray-400 group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors">
+//                 {String(index + 1).padStart(2, "0")}
+//               </div>
+
+//               <div className="flex justify-between items-center mb-0.5 w-full gap-2">
+//                 <div className="flex items-center gap-1.5 min-w-0 flex-grow">
+//                   <span className="text-[10px] font-black text-blue-600 truncate uppercase tracking-wider">
+//                     {line.speaker || "UNASSIGNED SPEAKER"}
+//                   </span>
+//                   {variantsCount > 0 && (
+//                     <span className="text-[8px] px-1.5 py-0.5 bg-blue-100 font-black text-blue-600 rounded flex-shrink-0 uppercase">
+//                       +{variantsCount} Var
+//                     </span>
+//                   )}
+//                 </div>
+//                 <button
+//                   onClick={(e) => removeLine(e, index)}
+//                   className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 p-1 rounded hover:bg-red-50 transition-all flex-shrink-0"
+//                 >
+//                   <Trash2 size={12} />
+//                 </button>
+//               </div>
+
+//               <p className="text-[11px] text-gray-600 truncate w-full block italic pr-2">
+//                 "{line.text || "..."}"
+//               </p>
+//               <ChevronRight
+//                 size={14}
+//                 className="absolute top-1/2 -translate-y-1/2 right-3 text-gray-300 pointer-events-none group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all"
+//               />
+//             </div>
+//           );
+//         })}
+
+//         {lines.length === 0 && (
+//           <div className="text-center py-12 border-2 border-dashed rounded-xl border-gray-200 bg-gray-50/50">
+//             <MessageSquare className="mx-auto text-gray-300 mb-2" size={28} />
+//             <p className="text-[10px] font-bold text-gray-400 uppercase">
+//               No narrative dialogue lines inside block.
+//             </p>
+//           </div>
+//         )}
+//       </div>
+
+//       {/* ── PORTAL ESCAPE ENGINE: CAST TO DOCUMENT BODY ── */}
+//       {activeIndex !== null &&
+//         currentLine &&
+//         createPortal(
+//           <div
+//             className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[9999] animate-in fade-in duration-200"
+//             onClick={() => setActiveIndex(null)} // Click backdrop to clean save and close
+//           >
+//             <div
+//               className="bg-white w-full max-w-3xl h-[80vh] rounded-2xl border border-gray-100 shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+//               onClick={(e) => e.stopPropagation()} // Stop event leakage back to canvas workspace
+//             >
+//               {/* Modal Navigation Header Panel */}
+//               <header className="px-5 py-4 bg-gray-900 text-white flex items-center justify-between shrink-0">
+//                 <div className="flex items-center gap-2 min-w-0">
+//                   <div className="bg-blue-500 text-white px-2 py-1 rounded-md text-xs font-black shrink-0">
+//                     LINE #{String(activeIndex + 1).padStart(2, "0")}
+//                   </div>
+//                   <h3 className="text-xs font-black uppercase tracking-widest text-gray-200 truncate">
+//                     Dialogue Element focus studio
+//                   </h3>
+//                 </div>
+//                 <button
+//                   onClick={() => setActiveIndex(null)}
+//                   className="p-1.5 hover:bg-gray-800 rounded-full text-gray-400 hover:text-white transition-colors flex-shrink-0"
+//                 >
+//                   <X size={18} />
+//                 </button>
+//               </header>
+
+//               {/* Split Content Scrollable Form Body */}
+//               <div className="flex-grow overflow-y-auto p-6 space-y-6 custom-scrollbar bg-white">
+//                 {/* Dynamic Blueprint Fields Layout Strip */}
+//                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+//                   {schema.sequenceFields.map((field) => (
+//                     <div
+//                       key={field.id}
+//                       className={`space-y-1 ${field.id === "text" ? "sm:col-span-2" : ""}`}
+//                     >
+//                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider block">
+//                         {field.label}
+//                       </label>
+//                       <SmartInput
+//                         field={field}
+//                         value={currentLine[field.id] || ""}
+//                         onChange={(val) =>
+//                           updateLine(activeIndex, field.id, val)
+//                         }
+//                       />
+//                     </div>
+//                   ))}
+//                 </div>
+
+//                 <hr className="border-gray-100" />
+
+//                 {/* Conditional Local Sub-branches Track */}
+//                 <div className="space-y-4">
+//                   <div className="flex justify-between items-center">
+//                     <div className="flex items-center gap-1.5">
+//                       <Sliders size={14} className="text-blue-500" />
+//                       <span className="text-[11px] font-black uppercase tracking-wider text-gray-700">
+//                         Conditional Narrative Variants ({currentVariants.length}
+//                         )
+//                       </span>
+//                     </div>
+//                     <button
+//                       onClick={() => addVariant(activeIndex)}
+//                       className="flex items-center gap-1 text-[10px] font-black bg-blue-50 text-blue-600 px-2.5 py-1.5 rounded-lg hover:bg-blue-100 transition-all"
+//                     >
+//                       <Plus size={12} /> Add Condition Variant
+//                     </button>
+//                   </div>
+
+//                   {/* Sub-variant Card Stack Configuration */}
+//                   <div className="space-y-3">
+//                     {currentVariants.map((variant, vIdx) => {
+//                       const selectedVar = availableVariables.find(
+//                         (v) => v.name === variant.check_flag,
+//                       );
+//                       const isNumeric = selectedVar?.type === "number";
+//                       const isString = selectedVar?.type === "string";
+
+//                       return (
+//                         <div
+//                           key={variant.id || vIdx}
+//                           className="bg-gray-50 border border-gray-200 rounded-xl p-3.5 space-y-3 relative animate-in fade-in zoom-in-95 duration-150"
+//                         >
+//                           {/* Selector Evaluation Action Row */}
+//                           <div className="flex items-center justify-between gap-1 bg-white border border-gray-100 rounded-lg p-2 shadow-sm">
+//                             <div className="flex items-center gap-1.5 text-xs font-medium text-gray-600 flex-grow min-w-0">
+//                               <span className="font-black text-blue-500 text-[10px] uppercase flex-shrink-0">
+//                                 IF
+//                               </span>
+
+//                               {/* Variable Select */}
+//                               <select
+//                                 value={variant.check_flag}
+//                                 onChange={(e) =>
+//                                   handleVariantVariableChange(
+//                                     activeIndex,
+//                                     vIdx,
+//                                     e.target.value,
+//                                   )
+//                                 }
+//                                 className="bg-transparent font-black text-gray-800 focus:outline-none flex-1 min-w-[50px] w-0 truncate cursor-pointer text-xs"
+//                               >
+//                                 {availableVariables.map((v) => (
+//                                   <option key={v.name} value={v.name}>
+//                                     {v.name}
+//                                   </option>
+//                                 ))}
+//                                 {availableVariables.length === 0 && (
+//                                   <option value="">No Variables Defined</option>
+//                                 )}
+//                               </select>
+
+//                               {/* Operator Select */}
+//                               <select
+//                                 value={variant.operator || "=="}
+//                                 onChange={(e) =>
+//                                   updateVariant(
+//                                     activeIndex,
+//                                     vIdx,
+//                                     "operator",
+//                                     e.target.value,
+//                                   )
+//                                 }
+//                                 className="bg-transparent font-black text-blue-600 px-1 focus:outline-none cursor-pointer flex-shrink-0 text-xs"
+//                               >
+//                                 <option value="==">==</option>
+//                                 <option value="!=">!=</option>
+//                                 {isNumeric && (
+//                                   <>
+//                                     <option value=">">&gt;</option>
+//                                     <option value="<">&lt;</option>
+//                                     <option value=">=">&gt;=</option>
+//                                     <option value="<=">&lt;=</option>
+//                                   </>
+//                                 )}
+//                               </select>
+
+//                               {/* Primitive Assignment Selector/Inputs */}
+//                               <div className="flex-1 min-w-[40px] w-0 flex">
+//                                 {isNumeric ? (
+//                                   <input
+//                                     type="number"
+//                                     value={variant.value ?? 0}
+//                                     onChange={(e) =>
+//                                       updateVariant(
+//                                         activeIndex,
+//                                         vIdx,
+//                                         "value",
+//                                         e.target.value === ""
+//                                           ? 0
+//                                           : Number(e.target.value),
+//                                       )
+//                                     }
+//                                     className="bg-transparent focus:underline font-bold text-gray-800 w-full focus:outline-none border-b border-dashed border-gray-200 focus:border-blue-400 text-xs"
+//                                   />
+//                                 ) : isString &&
+//                                   selectedVar.allowedValues &&
+//                                   selectedVar.allowedValues.length > 0 ? (
+//                                   <select
+//                                     value={
+//                                       variant.value ??
+//                                       selectedVar.defaultValue ??
+//                                       selectedVar.allowedValues[0] ??
+//                                       ""
+//                                     }
+//                                     onChange={(e) =>
+//                                       updateVariant(
+//                                         activeIndex,
+//                                         vIdx,
+//                                         "value",
+//                                         e.target.value,
+//                                       )
+//                                     }
+//                                     className="bg-transparent font-bold text-gray-800 focus:outline-none cursor-pointer w-full text-xs"
+//                                   >
+//                                     {selectedVar.allowedValues.map((val) => (
+//                                       <option key={val} value={val}>
+//                                         {val}
+//                                       </option>
+//                                     ))}
+//                                   </select>
+//                                 ) : isString ? (
+//                                   <input
+//                                     type="text"
+//                                     value={variant.value ?? ""}
+//                                     placeholder="text..."
+//                                     onChange={(e) =>
+//                                       updateVariant(
+//                                         activeIndex,
+//                                         vIdx,
+//                                         "value",
+//                                         e.target.value,
+//                                       )
+//                                     }
+//                                     className="bg-transparent focus:underline font-bold text-gray-800 w-full focus:outline-none border-b border-dashed border-gray-200 focus:border-blue-400 truncate text-xs"
+//                                   />
+//                                 ) : (
+//                                   <select
+//                                     value={
+//                                       variant.value === false ||
+//                                       variant.value === "false"
+//                                         ? "false"
+//                                         : "true"
+//                                     }
+//                                     onChange={(e) =>
+//                                       updateVariant(
+//                                         activeIndex,
+//                                         vIdx,
+//                                         "value",
+//                                         e.target.value === "true",
+//                                       )
+//                                     }
+//                                     className="bg-transparent font-black text-gray-800 cursor-pointer w-full text-xs outline-none"
+//                                   >
+//                                     <option value="true">TRUE</option>
+//                                     <option value="false">FALSE</option>
+//                                   </select>
+//                                 )}
+//                               </div>
+//                             </div>
+
+//                             <button
+//                               onClick={() => removeVariant(activeIndex, vIdx)}
+//                               className="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors flex-shrink-0"
+//                             >
+//                               <Trash2 size={12} />
+//                             </button>
+//                           </div>
+
+//                           {/* Alternative Widescreen Variant Input Text Area */}
+//                           <div className="space-y-1">
+//                             <label className="text-[9px] font-black text-gray-400 uppercase tracking-tight">
+//                               Alternative Text Display Value
+//                             </label>
+//                             <textarea
+//                               rows={2}
+//                               value={variant.text || ""}
+//                               onChange={(e) =>
+//                                 updateVariant(
+//                                   activeIndex,
+//                                   vIdx,
+//                                   "text",
+//                                   e.target.value,
+//                                 )
+//                               }
+//                               placeholder='e.g., "Welcome back, adventurer! You returned safely."'
+//                               className="w-full bg-white border border-gray-200 rounded-lg p-2.5 text-xs text-gray-700 placeholder-gray-300 italic focus:outline-none focus:border-blue-400 resize-none font-medium shadow-inner"
+//                             />
+//                           </div>
+//                         </div>
+//                       );
+//                     })}
+
+//                     {currentVariants.length === 0 && (
+//                       <div className="text-center py-6 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-[10px] text-gray-400 font-bold uppercase">
+//                         This element uses the parent text block across all
+//                         engine scenarios.
+//                       </div>
+//                     )}
+//                   </div>
+//                 </div>
+//               </div>
+
+//               {/* Bottom Footer Completion Lock Row */}
+//               <footer className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex justify-end shrink-0">
+//                 <button
+//                   onClick={() => setActiveIndex(null)}
+//                   className="px-4 py-2 bg-gray-900 text-white hover:bg-black rounded-xl text-xs font-black uppercase tracking-wider transition-all"
+//                 >
+//                   Save Line Changes
+//                 </button>
+//               </footer>
+//             </div>
+//           </div>,
+//           document.body, // Appends structural overlay markup safely to top-level window layout container
+//         )}
+//     </div>
+//   );
+// }
+
+
+// import React, { useState } from "react";
+// import { useLoreStore } from "../store";
+// import SmartInput from "./SmartInput";
+// import {
+//   Plus,
+//   Trash2,
+//   ChevronRight,
+//   MessageSquare,
+//   ArrowLeft,
+// } from "lucide-react";
+
+// export default function SequenceEditor({ nodeId, lines = [] }) {
+//   const { schema, updateNodeData } = useLoreStore();
+//   const [activeIndex, setActiveIndex] = useState(null);
+
+//   const updateLine = (index, fieldId, value) => {
+//     const { activeGraph, graphs } = useLoreStore.getState();
+//     const node = graphs[activeGraph].nodes.find((n) => n.id === nodeId);
+//     if (!node) return;
+//     const newLines = [...lines];
+//     newLines[index] = { ...newLines[index], [fieldId]: value };
+//     updateNodeData(nodeId, {
+//       ...node.data,
+//       dialogueLines: newLines,
+//     });
+//   };
+
+//   const addLine = () => {
+//     const { activeGraph, graphs, updateNodeData } = useLoreStore.getState();
+//     const node = graphs[activeGraph].nodes.find((n) => n.id === nodeId);
+
+//     if (!node) return;
+
+//     const newLine = {
+//       id: crypto.randomUUID(),
+//       speaker: "",
+//       text: "",
+//       portrait: "",
+//       sound: "",
+//     };
+
+//     updateNodeData(nodeId, {
+//       ...node.data,
+//       dialogueLines: [...(node.data.dialogueLines || []), newLine],
+//     });
+//   };
+
+//   const removeLine = (e, index) => {
+//     e.stopPropagation();
+//     const { activeGraph, graphs } = useLoreStore.getState();
+//     const node = graphs[activeGraph].nodes.find((n) => n.id === nodeId);
+//     if (!node) return;
+//     const newLines = lines.filter((_, i) => i !== index);
+//     updateNodeData(nodeId, {
+//       ...node.data,
+//       dialogueLines: newLines,
+//     });
+//     if (activeIndex === index) setActiveIndex(null);
+//   };
+
+//   // DETAIL VIEW: The specific form for one line
+//   if (activeIndex !== null) {
+//     const currentLine = lines[activeIndex];
+
+//     // SAFETY CHECK: If the store hasn't caught up with the index yet, show a loader or return null
+//     if (!currentLine) {
+//       return (
+//         <div className="p-4 text-xs text-gray-400">Loading line data...</div>
+//       );
+//     }
+
+//     return (
+//       <div className="flex flex-col h-full bg-white animate-in slide-in-from-right duration-200">
+//         <button
+//           onClick={() => setActiveIndex(null)}
+//           className="flex items-center gap-2 p-3 text-blue-600 hover:bg-blue-50 border-b text-xs font-bold"
+//         >
+//           <ArrowLeft size={14} /> Back to Sequence
+//         </button>
+
+//         <div className="p-4 space-y-4 overflow-y-auto">
+//           {schema.sequenceFields.map((field) => (
+//             <div key={field.id} className="space-y-1">
+//               <label className="text-[10px] font-bold text-gray-400 uppercase">
+//                 {field.label}
+//               </label>
+//               <SmartInput
+//                 field={field}
+//                 value={currentLine[field.id] || ""}
+//                 onChange={(val) => updateLine(activeIndex, field.id, val)}
+//               />
+//             </div>
+//           ))}
+//         </div>
+//       </div>
+//     );
+//   }
+
+//   // MASTER VIEW: The scrollable list of boxes
+//   return (
+//     <div className="flex flex-col h-full">
+//       <div className="flex justify-between items-center p-2 mb-2">
+//         <span className="text-[10px] font-bold text-gray-400 uppercase">
+//           Dialogue List ({lines.length})
+//         </span>
+//         <button
+//           onClick={addLine}
+//           className="bg-blue-600 text-white p-1 rounded-md hover:bg-blue-700 transition-colors"
+//         >
+//           <Plus size={16} />
+//         </button>
+//       </div>
+
+//       <div className="flex-grow overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+//         {lines.map((line, index) => (
+//           <div
+//             key={index}
+//             onClick={() => setActiveIndex(index)}
+//             className="group relative bg-gray-50 border border-gray-200 rounded-md p-3 pl-12 cursor-pointer hover:border-blue-400 hover:shadow-sm transition-all min-h-[60px]"
+//           >
+//             {/* LINE NUMBER BADGE - Fixed in a gutter */}
+//             <div className="absolute left-0 top-0 bottom-0 w-8 bg-gray-100 border-r flex items-center justify-center text-[10px] font-black text-gray-400 group-hover:bg-blue-100 group-hover:text-blue-500 transition-colors">
+//               {String(index + 1).padStart(2, "0")}
+//             </div>
+
+//             {/* CONTENT - Now pushed right by the pl-12 */}
+//             <div className="flex justify-between items-start mb-1">
+//               <span className="text-[10px] font-bold text-blue-600 truncate max-w-[120px]">
+//                 {line.speaker || "No Speaker"}
+//               </span>
+//               <button
+//                 onClick={(e) => removeLine(e, index)}
+//                 className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500"
+//               >
+//                 <Trash2 size={12} />
+//               </button>
+//             </div>
+//             <p className="text-[11px] text-gray-600 line-clamp-1 italic">
+//               "{line.text || "..."}"
+//             </p>
+//             <ChevronRight
+//               size={14}
+//               className="absolute bottom-2 right-2 text-gray-300"
+//             />
+//           </div>
+//         ))}
+
+//         {lines.length === 0 && (
+//           <div className="text-center py-10 border-2 border-dashed rounded-lg">
+//             <MessageSquare className="mx-auto text-gray-200 mb-2" size={32} />
+//             <p className="text-[10px] text-gray-400">
+//               No dialogue added to this scene.
+//             </p>
+//           </div>
+//         )}
+//       </div>
+//     </div>
+//   );
+// }
+
+// import React, { useState } from "react";
+// import { useLoreStore } from "../store";
+// import SmartInput from "./SmartInput";
+// import {
+//   Plus,
+//   Trash2,
+//   ChevronRight,
+//   MessageSquare,
+//   ArrowLeft,
+//   Sliders,
+// } from "lucide-react";
+
+// export default function SequenceEditor({ nodeId, lines = [] }) {
+//   const { schema, lists, updateNodeData } = useLoreStore();
+//   const [activeIndex, setActiveIndex] = useState(null);
+
+//   const availableVariables = lists.variables || [];
+
+//   // Core update dispatch wrapper
+//   const syncDialogueLinesWithStore = (newLines) => {
+//     const { activeGraph, graphs } = useLoreStore.getState();
+//     const node = graphs[activeGraph].nodes.find((n) => n.id === nodeId);
+//     if (!node) return;
+
+//     updateNodeData(nodeId, {
+//       ...node.data,
+//       dialogueLines: newLines,
+//     });
+//   };
+
+//   const updateLine = (index, fieldId, value) => {
+//     const newLines = [...lines];
+//     newLines[index] = { ...newLines[index], [fieldId]: value };
+//     syncDialogueLinesWithStore(newLines);
+//   };
+
+//   const addLine = () => {
+//     const newLine = {
+//       id: crypto.randomUUID(),
+//       speaker: "",
+//       text: "",
+//       portrait: "",
+//       sound: "",
+//       variants: [],
+//     };
+//     syncDialogueLinesWithStore([...lines, newLine]);
+//   };
+
+//   const removeLine = (e, index) => {
+//     e.stopPropagation();
+//     const newLines = lines.filter((_, i) => i !== index);
+//     syncDialogueLinesWithStore(newLines);
+//     if (activeIndex === index) setActiveIndex(null);
+//   };
+
+//   // ── TYPE-SAFE VARIANT OPERATION MANIPULATORS ──
+//   const addVariant = (lineIndex) => {
+//     const newLines = [...lines];
+//     const targetLine = { ...newLines[lineIndex] };
+//     const currentVariants = Array.isArray(targetLine.variants)
+//       ? targetLine.variants
+//       : [];
+
+//     // Peek first variable's type to seed a correct primitive default value
+//     const firstVar = availableVariables[0];
+//     let defaultVal = true;
+//     if (firstVar?.type === "number") defaultVal = 0;
+//     if (firstVar?.type === "string") defaultVal = "";
+
+//     const newVariant = {
+//       id: crypto.randomUUID(),
+//       check_flag: firstVar?.name || "",
+//       operator: "==",
+//       value: defaultVal,
+//       text: "",
+//     };
+
+//     targetLine.variants = [...currentVariants, newVariant];
+//     newLines[lineIndex] = targetLine;
+//     syncDialogueLinesWithStore(newLines);
+//   };
+
+//   const handleVariantVariableChange = (lineIndex, variantIndex, varName) => {
+//     const newLines = [...lines];
+//     const targetLine = { ...newLines[lineIndex] };
+//     const currentVariants = [...targetLine.variants];
+//     const varDef = availableVariables.find((v) => v.name === varName);
+
+//     // Enforce instant type coercion on variable switch
+//     let newVal = true;
+//     if (varDef?.type === "number") newVal = 0;
+//     if (varDef?.type === "string") newVal = "";
+
+//     currentVariants[variantIndex] = {
+//       ...currentVariants[variantIndex],
+//       check_flag: varName,
+//       operator: "==",
+//       value: newVal,
+//     };
+
+//     targetLine.variants = currentVariants;
+//     newLines[lineIndex] = targetLine;
+//     syncDialogueLinesWithStore(newLines);
+//   };
+
+//   const updateVariant = (lineIndex, variantIndex, fieldId, value) => {
+//     const newLines = [...lines];
+//     const targetLine = { ...newLines[lineIndex] };
+//     const currentVariants = [...targetLine.variants];
+
+//     currentVariants[variantIndex] = {
+//       ...currentVariants[variantIndex],
+//       [fieldId]: value,
+//     };
+
+//     targetLine.variants = currentVariants;
+//     newLines[lineIndex] = targetLine;
+//     syncDialogueLinesWithStore(newLines);
+//   };
+
+//   const removeVariant = (lineIndex, variantIndex) => {
+//     const newLines = [...lines];
+//     const targetLine = { ...newLines[lineIndex] };
+
+//     targetLine.variants = targetLine.variants.filter(
+//       (_, i) => i !== variantIndex,
+//     );
+//     newLines[lineIndex] = targetLine;
+//     syncDialogueLinesWithStore(newLines);
+//   };
+
+//   // DETAIL VIEW: Form for editing a specific line layout
+//   if (activeIndex !== null) {
+//     const currentLine = lines[activeIndex];
+
+//     if (!currentLine) {
+//       return (
+//         <div className="p-4 text-xs text-gray-400">Loading line data...</div>
+//       );
+//     }
+
+//     const currentVariants = Array.isArray(currentLine.variants)
+//       ? currentLine.variants
+//       : [];
+
+//     return (
+//       <div className="flex flex-col h-full bg-white animate-in slide-in-from-right duration-200">
+//         <button
+//           onClick={() => setActiveIndex(null)}
+//           className="flex items-center gap-2 p-3 text-blue-600 hover:bg-blue-50 border-b text-xs font-bold"
+//         >
+//           <ArrowLeft size={14} /> Back to Sequence
+//         </button>
+
+//         <div className="p-4 space-y-5 overflow-y-auto flex-grow custom-scrollbar">
+//           {/* Main Layout Blueprints Fields */}
+//           <div className="space-y-4">
+//             {schema.sequenceFields.map((field) => (
+//               <div key={field.id} className="space-y-1">
+//                 <label className="text-[10px] font-bold text-gray-400 uppercase">
+//                   {field.label}
+//                 </label>
+//                 <SmartInput
+//                   field={field}
+//                   value={currentLine[field.id] || ""}
+//                   onChange={(val) => updateLine(activeIndex, field.id, val)}
+//                 />
+//               </div>
+//             ))}
+//           </div>
+
+//           <hr className="border-gray-100" />
+
+//           {/* Conditional Line Variants Segment */}
+//           <div className="space-y-3">
+//             <div className="flex justify-between items-center">
+//               <div className="flex items-center gap-1.5 text-gray-700">
+//                 <Sliders size={13} className="text-blue-500" />
+//                 <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+//                   Conditional Text Variants ({currentVariants.length})
+//                 </span>
+//               </div>
+//               <button
+//                 onClick={() => addVariant(activeIndex)}
+//                 className="flex items-center gap-1 text-[10px] font-bold bg-blue-50 text-blue-600 px-2 py-1 rounded hover:bg-blue-100 transition-all"
+//               >
+//                 <Plus size={12} /> Add Condition Variant
+//               </button>
+//             </div>
+
+//             {/* Vertical Stack of Type-Safe Variant Cards */}
+//             <div className="space-y-3">
+//               {currentVariants.map((variant, vIdx) => {
+//                 const selectedVar = availableVariables.find(
+//                   (v) => v.name === variant.check_flag,
+//                 );
+//                 const isNumeric = selectedVar?.type === "number";
+//                 const isString = selectedVar?.type === "string";
+
+//                 return (
+//                   <div
+//                     key={variant.id || vIdx}
+//                     className="bg-gray-50 border border-gray-200 rounded-lg p-2.5 space-y-3 relative animate-in fade-in zoom-in-95 duration-150"
+//                   >
+//                     {/* Header Action Bar (Fixed CSS Overflow Issue) */}
+//                     <div className="flex items-center justify-between gap-1 bg-white border border-gray-100 rounded p-1.5 shadow-sm">
+//                       <div className="flex items-center gap-1 text-[11px] font-medium text-gray-600 flex-grow min-w-0">
+//                         <span className="font-black text-blue-500 text-[10px] uppercase flex-shrink-0">
+//                           IF
+//                         </span>
+
+//                         {/* Variable Selection Wrapper (Flex proportional sharing) */}
+//                         <select
+//                           value={variant.check_flag}
+//                           onChange={(e) =>
+//                             handleVariantVariableChange(
+//                               activeIndex,
+//                               vIdx,
+//                               e.target.value,
+//                             )
+//                           }
+//                           className="bg-transparent font-bold text-gray-700 focus:outline-none flex-1 min-w-[40px] w-0 truncate cursor-pointer"
+//                         >
+//                           {availableVariables.map((v) => (
+//                             <option key={v.name} value={v.name}>
+//                               {v.name}
+//                             </option>
+//                           ))}
+//                           {availableVariables.length === 0 && (
+//                             <option value="">No Variables Defined</option>
+//                           )}
+//                         </select>
+
+//                         {/* Adaptive Operators Dropdown Selection (Shrink-proof) */}
+//                         <select
+//                           value={variant.operator || "=="}
+//                           onChange={(e) =>
+//                             updateVariant(
+//                               activeIndex,
+//                               vIdx,
+//                               "operator",
+//                               e.target.value,
+//                             )
+//                           }
+//                           className="bg-transparent font-black text-blue-600 px-0.5 focus:outline-none cursor-pointer flex-shrink-0"
+//                         >
+//                           <option value="==">==</option>
+//                           <option value="!=">!=</option>
+//                           {isNumeric && (
+//                             <>
+//                               <option value=">">&gt;</option>
+//                               <option value="<">&lt;</option>
+//                               <option value=">=">&gt;=</option>
+//                               <option value="<=">&lt;=</option>
+//                             </>
+//                           )}
+//                         </select>
+
+//                         {/* Target Coerced Value Primitive Forms (Flex proportional sharing) */}
+//                         <div className="flex-1 min-w-[30px] w-0 flex">
+//                           {isNumeric ? (
+//                             <input
+//                               type="number"
+//                               value={variant.value ?? 0}
+//                               onChange={(e) =>
+//                                 updateVariant(
+//                                   activeIndex,
+//                                   vIdx,
+//                                   "value",
+//                                   e.target.value === ""
+//                                     ? 0
+//                                     : Number(e.target.value),
+//                                 )
+//                               }
+//                               className="bg-transparent focus:underline font-semibold text-gray-700 w-full focus:outline-none border-b border-dashed border-gray-200 focus:border-blue-400"
+//                             />
+//                           ) : isString ? (
+//                             selectedVar.allowedValues &&
+//                             selectedVar.allowedValues.length > 0 ? (
+//                               /* 🏆 ENUM DROPDOWN: Renders if predefined choices exist, eliminating typos */
+//                               <select
+//                                 value={
+//                                   variant.value ??
+//                                   selectedVar.defaultValue ??
+//                                   selectedVar.allowedValues[0] ??
+//                                   ""
+//                                 }
+//                                 onChange={(e) =>
+//                                   updateVariant(
+//                                     activeIndex,
+//                                     vIdx,
+//                                     "value",
+//                                     e.target.value,
+//                                   )
+//                                 }
+//                                 className="bg-transparent font-bold text-blue-600 focus:outline-none cursor-pointer max-w-[120px] truncate"
+//                               >
+//                                 {selectedVar.allowedValues.map((val) => (
+//                                   <option key={val} value={val}>
+//                                     {val}
+//                                   </option>
+//                                 ))}
+//                               </select>
+//                             ) : (
+//                               /* RAW INPUT: Fallback if the string variable is completely freeform (like an asset path) */
+//                               <input
+//                                 type="text"
+//                                 value={variant.value ?? ""}
+//                                 placeholder="text..."
+//                                 onChange={(e) =>
+//                                   updateVariant(
+//                                     activeIndex,
+//                                     vIdx,
+//                                     "value",
+//                                     e.target.value,
+//                                   )
+//                                 }
+//                                 className="bg-transparent focus:underline font-semibold text-gray-700 w-20 focus:outline-none border-b border-dashed border-gray-200 focus:border-blue-400 truncate"
+//                               />
+//                             )
+//                           ) : (
+//                             <select
+//                               value={
+//                                 variant.value === false ||
+//                                 variant.value === "false"
+//                                   ? "false"
+//                                   : "true"
+//                               }
+//                               onChange={(e) =>
+//                                 updateVariant(
+//                                   activeIndex,
+//                                   vIdx,
+//                                   "value",
+//                                   e.target.value === "true",
+//                                 )
+//                               }
+//                               className="bg-transparent font-bold text-gray-700 focus:outline-none cursor-pointer w-full"
+//                             >
+//                               <option value="true">TRUE</option>
+//                               <option value="false">FALSE</option>
+//                             </select>
+//                           )}
+//                         </div>
+//                       </div>
+
+//                       <button
+//                         onClick={() => removeVariant(activeIndex, vIdx)}
+//                         className="text-gray-400 hover:text-red-500 p-1.5 rounded hover:bg-red-50 transition-colors flex-shrink-0"
+//                         title="Remove Variant"
+//                       >
+//                         <Trash2 size={12} />
+//                       </button>
+//                     </div>
+
+//                     {/* Variant Response Line Input */}
+//                     <div className="space-y-1">
+//                       <label className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">
+//                         Alternative Text Display Value
+//                       </label>
+//                       <textarea
+//                         rows={2}
+//                         value={variant.text || ""}
+//                         onChange={(e) =>
+//                           updateVariant(
+//                             activeIndex,
+//                             vIdx,
+//                             "text",
+//                             e.target.value,
+//                           )
+//                         }
+//                         placeholder='e.g., "You are insufferable, brother! I detest you!"'
+//                         className="w-full bg-white border border-gray-200 rounded p-2 text-xs text-gray-700 placeholder-gray-300 italic focus:outline-none focus:border-blue-400 resize-none font-medium shadow-inner"
+//                       />
+//                     </div>
+//                   </div>
+//                 );
+//               })}
+
+//               {currentVariants.length === 0 && (
+//                 <div className="text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-200 text-[10px] text-gray-400">
+//                   This line uses the default text string globally across all
+//                   project conditions.
+//                 </div>
+//               )}
+//             </div>
+//           </div>
+//         </div>
+//       </div>
+//     );
+//   }
+
+//   // MASTER VIEW: Scrollable list of boxes
+//   return (
+//     <div className="flex flex-col h-full w-full overflow-hidden">
+//       <div className="flex justify-between items-center p-2 mb-2">
+//         <span className="text-[10px] font-bold text-gray-400 uppercase">
+//           Dialogue List ({lines.length})
+//         </span>
+//         <button
+//           onClick={addLine}
+//           className="bg-blue-600 text-white p-1 rounded-md hover:bg-blue-700 transition-colors"
+//         >
+//           <Plus size={16} />
+//         </button>
+//       </div>
+
+//       <div className="flex-grow overflow-y-auto space-y-2 pr-1 custom-scrollbar w-full overflow-x-hidden">
+//         {lines.map((line, index) => {
+//           const variantsCount = Array.isArray(line.variants)
+//             ? line.variants.length
+//             : 0;
+//           return (
+//             <div
+//               key={line.id || index}
+//               onClick={() => setActiveIndex(index)}
+//               className="group relative bg-gray-50 border border-gray-200 rounded-md p-3 pl-12 pr-8 cursor-pointer hover:border-blue-400 hover:shadow-sm transition-all min-h-[60px] overflow-hidden select-none"
+//             >
+//               {/* LINE NUMBER BADGE */}
+//               <div className="absolute left-0 top-0 bottom-0 w-8 bg-gray-100 border-r flex items-center justify-center text-[10px] font-black text-gray-400 group-hover:bg-blue-100 group-hover:text-blue-500 transition-colors">
+//                 {String(index + 1).padStart(2, "0")}
+//               </div>
+
+//               {/* CONTENT */}
+//               <div className="flex justify-between items-center mb-1 w-full gap-2">
+//                 <div className="flex items-center gap-1.5 min-w-0 flex-grow">
+//                   <span className="text-[10px] font-bold text-blue-600 truncate">
+//                     {line.speaker || "No Speaker"}
+//                   </span>
+//                   {variantsCount > 0 && (
+//                     <span className="text-[8px] px-1 py-0.2 bg-blue-100 font-extrabold text-blue-600 rounded flex-shrink-0">
+//                       +{variantsCount} VAR
+//                     </span>
+//                   )}
+//                 </div>
+//                 <button
+//                   onClick={(e) => removeLine(e, index)}
+//                   className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all flex-shrink-0"
+//                 >
+//                   <Trash2 size={12} />
+//                 </button>
+//               </div>
+
+//               {/* Strict safety truncate limits to bypass string overflows inside elements */}
+//               <p className="text-[11px] text-gray-600 truncate w-full block italic pr-2">
+//                 "{line.text || "..."}"
+//               </p>
+//               <ChevronRight
+//                 size={14}
+//                 className="absolute bottom-2 right-2 text-gray-300 pointer-events-none"
+//               />
+//             </div>
+//           );
+//         })}
+
+//         {lines.length === 0 && (
+//           <div className="text-center py-10 border-2 border-dashed rounded-lg">
+//             <MessageSquare className="mx-auto text-gray-200 mb-2" size={32} />
+//             <p className="text-[10px] text-gray-400">
+//               No dialogue added to this scene.
+//             </p>
+//           </div>
+//         )}
+//       </div>
+//     </div>
+//   );
+// }
+
+
+// import React, { useState, useEffect, useRef } from "react";
+// import { createPortal } from "react-dom"; // Added for global viewport escape velocity
+// import { useLoreStore } from "../store";
+// import SmartInput from "./SmartInput";
+// import {
+//   Plus,
+//   Trash2,
+//   ChevronRight,
+//   MessageSquare,
+//   X,
+//   Sliders,
+// } from "lucide-react";
+
+// export default function SequenceEditor({ nodeId, lines = [] }) {
+//   const { schema, lists, updateNodeData } = useLoreStore();
+//   const [activeIndex, setActiveIndex] = useState(null);
+
+//   const listScrollContainerRef = useRef(null);
+//   const availableVariables = lists.variables || [];
+
+//   // Smooth auto-scroll anchor trigger for list expansions
+//   useEffect(() => {
+//     if (listScrollContainerRef.current) {
+//       listScrollContainerRef.current.scrollTo({
+//         top: listScrollContainerRef.current.scrollHeight,
+//         behavior: "smooth",
+//       });
+//     }
+//   }, [lines.length]);
+
+//   // Core update dispatch wrapper
+//   const syncDialogueLinesWithStore = (newLines) => {
+//     const { activeGraph, graphs } = useLoreStore.getState();
+//     const node = graphs[activeGraph].nodes.find((n) => n.id === nodeId);
+//     if (!node) return;
+
+//     updateNodeData(nodeId, {
+//       ...node.data,
+//       dialogueLines: newLines,
+//     });
+//   };
+
+//   const updateLine = (index, fieldId, value) => {
+//     const newLines = [...lines];
+//     newLines[index] = { ...newLines[index], [fieldId]: value };
+//     syncDialogueLinesWithStore(newLines);
+//   };
+
+//   const addLine = () => {
+//     const newLine = {
+//       id: crypto.randomUUID(),
+//       speaker: "",
+//       text: "",
+//       portrait: "",
+//       sound: "",
+//       variants: [],
+//     };
+//     syncDialogueLinesWithStore([...lines, newLine]);
+//   };
+
+//   const removeLine = (e, index) => {
+//     e.stopPropagation();
+//     const newLines = lines.filter((_, i) => i !== index);
+//     syncDialogueLinesWithStore(newLines);
+//     if (activeIndex === index) setActiveIndex(null);
+//   };
+
+//   // ── TYPE-SAFE VARIANT OPERATION MANIPULATORS ──
+//   const addVariant = (lineIndex) => {
+//     const newLines = [...lines];
+//     const targetLine = { ...newLines[lineIndex] };
+//     const currentVariants = Array.isArray(targetLine.variants)
+//       ? targetLine.variants
+//       : [];
+
+//     const firstVar = availableVariables[0];
+//     let defaultVal = true;
+//     if (firstVar?.type === "number") defaultVal = 0;
+//     if (firstVar?.type === "string") defaultVal = "";
+
+//     const newVariant = {
+//       id: crypto.randomUUID(),
+//       check_flag: firstVar?.name || "",
+//       operator: "==",
+//       value: defaultVal,
+//       text: "",
+//     };
+
+//     targetLine.variants = [...currentVariants, newVariant];
+//     newLines[lineIndex] = targetLine;
+//     syncDialogueLinesWithStore(newLines);
+//   };
+
+//   const handleVariantVariableChange = (lineIndex, variantIndex, varName) => {
+//     const newLines = [...lines];
+//     const targetLine = { ...newLines[lineIndex] };
+//     const currentVariants = [...targetLine.variants];
+//     const varDef = availableVariables.find((v) => v.name === varName);
+
+//     let newVal = true;
+//     if (varDef?.type === "number") newVal = 0;
+//     if (varDef?.type === "string") newVal = "";
+
+//     currentVariants[variantIndex] = {
+//       ...currentVariants[variantIndex],
+//       check_flag: varName,
+//       operator: "==",
+//       value: newVal,
+//     };
+
+//     targetLine.variants = currentVariants;
+//     newLines[lineIndex] = targetLine;
+//     syncDialogueLinesWithStore(newLines);
+//   };
+
+//   const updateVariant = (lineIndex, variantIndex, fieldId, value) => {
+//     const newLines = [...lines];
+//     const targetLine = { ...newLines[lineIndex] };
+//     const currentVariants = [...targetLine.variants];
+
+//     currentVariants[variantIndex] = {
+//       ...currentVariants[variantIndex],
+//       [fieldId]: value,
+//     };
+
+//     targetLine.variants = currentVariants;
+//     newLines[lineIndex] = targetLine;
+//     syncDialogueLinesWithStore(newLines);
+//   };
+
+//   const removeVariant = (lineIndex, variantIndex) => {
+//     const newLines = [...lines];
+//     const targetLine = { ...newLines[lineIndex] };
+
+//     targetLine.variants = targetLine.variants.filter(
+//       (_, i) => i !== variantIndex,
+//     );
+//     newLines[lineIndex] = targetLine;
+//     syncDialogueLinesWithStore(newLines);
+//   };
+
+//   const currentLine = activeIndex !== null ? lines[activeIndex] : null;
+//   const currentVariants =
+//     currentLine && Array.isArray(currentLine.variants)
+//       ? currentLine.variants
+//       : [];
+
+//   return (
+//     <div className="flex flex-col h-full w-full overflow-hidden relative">
+//       {/* ── SIDEBAR MASTER VIEW LIST ── */}
+//       <div className="flex justify-between items-center bg-white pb-3 shrink-0 sticky top-0 z-10 border-b border-gray-50">
+//         <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+//           Dialogue Sequence ({lines.length})
+//         </span>
+//         <button
+//           onClick={addLine}
+//           className="bg-blue-600 text-white p-1.5 rounded-lg hover:bg-blue-700 hover:scale-105 transition-all shadow-md shadow-blue-100 flex items-center gap-1 text-[10px] font-bold uppercase pl-2 pr-3"
+//         >
+//           <Plus size={14} /> Add Line
+//         </button>
+//       </div>
+
+//       <div
+//         ref={listScrollContainerRef}
+//         className="flex-grow overflow-y-auto space-y-2 pt-2 pr-1 custom-scrollbar w-full overflow-x-hidden pb-12"
+//       >
+//         {lines.map((line, index) => {
+//           const variantsCount = Array.isArray(line.variants)
+//             ? line.variants.length
+//             : 0;
+//           return (
+//             <div
+//               key={line.id || index}
+//               onClick={() => setActiveIndex(index)}
+//               className="group relative bg-gray-50 border border-gray-200 rounded-xl p-3 pl-12 pr-10 cursor-pointer hover:border-blue-400 hover:bg-white hover:shadow-md hover:shadow-gray-50 transition-all min-h-[64px] overflow-hidden select-none"
+//             >
+//               <div className="absolute left-0 top-0 bottom-0 w-8 bg-gray-100/70 border-r flex items-center justify-center text-[10px] font-black text-gray-400 group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors">
+//                 {String(index + 1).padStart(2, "0")}
+//               </div>
+
+//               <div className="flex justify-between items-center mb-0.5 w-full gap-2">
+//                 <div className="flex items-center gap-1.5 min-w-0 flex-grow">
+//                   <span className="text-[10px] font-black text-blue-600 truncate uppercase tracking-wider">
+//                     {line.speaker || "UNASSIGNED SPEAKER"}
+//                   </span>
+//                   {variantsCount > 0 && (
+//                     <span className="text-[8px] px-1.5 py-0.5 bg-blue-100 font-black text-blue-600 rounded flex-shrink-0 uppercase">
+//                       +{variantsCount} Var
+//                     </span>
+//                   )}
+//                 </div>
+//                 <button
+//                   onClick={(e) => removeLine(e, index)}
+//                   className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 p-1 rounded hover:bg-red-50 transition-all flex-shrink-0"
+//                 >
+//                   <Trash2 size={12} />
+//                 </button>
+//               </div>
+
+//               <p className="text-[11px] text-gray-600 truncate w-full block italic pr-2">
+//                 "{line.text || "..."}"
+//               </p>
+//               <ChevronRight
+//                 size={14}
+//                 className="absolute top-1/2 -translate-y-1/2 right-3 text-gray-300 pointer-events-none group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all"
+//               />
+//             </div>
+//           );
+//         })}
+
+//         {lines.length === 0 && (
+//           <div className="text-center py-12 border-2 border-dashed rounded-xl border-gray-200 bg-gray-50/50">
+//             <MessageSquare className="mx-auto text-gray-300 mb-2" size={28} />
+//             <p className="text-[10px] font-bold text-gray-400 uppercase">
+//               No narrative dialogue lines inside block.
+//             </p>
+//           </div>
+//         )}
+//       </div>
+
+//       {/* ── PORTAL ESCAPE ENGINE: CAST TO DOCUMENT BODY ── */}
+//       {activeIndex !== null &&
+//         currentLine &&
+//         createPortal(
+//           <div
+//             className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[9999] animate-in fade-in duration-200"
+//             onClick={() => setActiveIndex(null)} // Click backdrop to clean save and close
+//           >
+//             <div
+//               className="bg-white w-full max-w-3xl h-[80vh] rounded-2xl border border-gray-100 shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+//               onClick={(e) => e.stopPropagation()} // Stop event leakage back to canvas workspace
+//             >
+//               {/* Modal Navigation Header Panel */}
+//               <header className="px-5 py-4 bg-gray-900 text-white flex items-center justify-between shrink-0">
+//                 <div className="flex items-center gap-2 min-w-0">
+//                   <div className="bg-blue-500 text-white px-2 py-1 rounded-md text-xs font-black shrink-0">
+//                     LINE #{String(activeIndex + 1).padStart(2, "0")}
+//                   </div>
+//                   <h3 className="text-xs font-black uppercase tracking-widest text-gray-200 truncate">
+//                     Dialogue Element focus studio
+//                   </h3>
+//                 </div>
+//                 <button
+//                   onClick={() => setActiveIndex(null)}
+//                   className="p-1.5 hover:bg-gray-800 rounded-full text-gray-400 hover:text-white transition-colors flex-shrink-0"
+//                 >
+//                   <X size={18} />
+//                 </button>
+//               </header>
+
+//               {/* Split Content Scrollable Form Body */}
+//               <div className="flex-grow overflow-y-auto p-6 space-y-6 custom-scrollbar bg-white">
+//                 {/* Dynamic Blueprint Fields Layout Strip */}
+//                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+//                   {schema.sequenceFields.map((field) => (
+//                     <div
+//                       key={field.id}
+//                       className={`space-y-1 ${field.id === "text" ? "sm:col-span-2" : ""}`}
+//                     >
+//                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider block">
+//                         {field.label}
+//                       </label>
+//                       <SmartInput
+//                         field={field}
+//                         value={currentLine[field.id] || ""}
+//                         onChange={(val) =>
+//                           updateLine(activeIndex, field.id, val)
+//                         }
+//                       />
+//                     </div>
+//                   ))}
+//                 </div>
+
+//                 <hr className="border-gray-100" />
+
+//                 {/* Conditional Local Sub-branches Track */}
+//                 <div className="space-y-4">
+//                   <div className="flex justify-between items-center">
+//                     <div className="flex items-center gap-1.5">
+//                       <Sliders size={14} className="text-blue-500" />
+//                       <span className="text-[11px] font-black uppercase tracking-wider text-gray-700">
+//                         Conditional Narrative Variants ({currentVariants.length}
+//                         )
+//                       </span>
+//                     </div>
+//                     <button
+//                       onClick={() => addVariant(activeIndex)}
+//                       className="flex items-center gap-1 text-[10px] font-black bg-blue-50 text-blue-600 px-2.5 py-1.5 rounded-lg hover:bg-blue-100 transition-all"
+//                     >
+//                       <Plus size={12} /> Add Condition Variant
+//                     </button>
+//                   </div>
+
+//                   {/* Sub-variant Card Stack Configuration */}
+//                   <div className="space-y-3">
+//                     {currentVariants.map((variant, vIdx) => {
+//                       const selectedVar = availableVariables.find(
+//                         (v) => v.name === variant.check_flag,
+//                       );
+//                       const isNumeric = selectedVar?.type === "number";
+//                       const isString = selectedVar?.type === "string";
+
+//                       return (
+//                         <div
+//                           key={variant.id || vIdx}
+//                           className="bg-gray-50 border border-gray-200 rounded-xl p-3.5 space-y-3 relative animate-in fade-in zoom-in-95 duration-150"
+//                         >
+//                           {/* Selector Evaluation Action Row */}
+//                           <div className="flex items-center justify-between gap-1 bg-white border border-gray-100 rounded-lg p-2 shadow-sm">
+//                             <div className="flex items-center gap-1.5 text-xs font-medium text-gray-600 flex-grow min-w-0">
+//                               <span className="font-black text-blue-500 text-[10px] uppercase flex-shrink-0">
+//                                 IF
+//                               </span>
+
+//                               {/* Variable Select */}
+//                               <select
+//                                 value={variant.check_flag}
+//                                 onChange={(e) =>
+//                                   handleVariantVariableChange(
+//                                     activeIndex,
+//                                     vIdx,
+//                                     e.target.value,
+//                                   )
+//                                 }
+//                                 className="bg-transparent font-black text-gray-800 focus:outline-none flex-1 min-w-[50px] w-0 truncate cursor-pointer text-xs"
+//                               >
+//                                 {availableVariables.map((v) => (
+//                                   <option key={v.name} value={v.name}>
+//                                     {v.name}
+//                                   </option>
+//                                 ))}
+//                                 {availableVariables.length === 0 && (
+//                                   <option value="">No Variables Defined</option>
+//                                 )}
+//                               </select>
+
+//                               {/* Operator Select */}
+//                               <select
+//                                 value={variant.operator || "=="}
+//                                 onChange={(e) =>
+//                                   updateVariant(
+//                                     activeIndex,
+//                                     vIdx,
+//                                     "operator",
+//                                     e.target.value,
+//                                   )
+//                                 }
+//                                 className="bg-transparent font-black text-blue-600 px-1 focus:outline-none cursor-pointer flex-shrink-0 text-xs"
+//                               >
+//                                 <option value="==">==</option>
+//                                 <option value="!=">!=</option>
+//                                 {isNumeric && (
+//                                   <>
+//                                     <option value=">">&gt;</option>
+//                                     <option value="<">&lt;</option>
+//                                     <option value=">=">&gt;=</option>
+//                                     <option value="<=">&lt;=</option>
+//                                   </>
+//                                 )}
+//                               </select>
+
+//                               {/* Primitive Assignment Selector/Inputs */}
+//                               <div className="flex-1 min-w-[40px] w-0 flex">
+//                                 {isNumeric ? (
+//                                   <input
+//                                     type="number"
+//                                     value={variant.value ?? 0}
+//                                     onChange={(e) =>
+//                                       updateVariant(
+//                                         activeIndex,
+//                                         vIdx,
+//                                         "value",
+//                                         e.target.value === ""
+//                                           ? 0
+//                                           : Number(e.target.value),
+//                                       )
+//                                     }
+//                                     className="bg-transparent focus:underline font-bold text-gray-800 w-full focus:outline-none border-b border-dashed border-gray-200 focus:border-blue-400 text-xs"
+//                                   />
+//                                 ) : isString &&
+//                                   selectedVar.allowedValues &&
+//                                   selectedVar.allowedValues.length > 0 ? (
+//                                   <select
+//                                     value={
+//                                       variant.value ??
+//                                       selectedVar.defaultValue ??
+//                                       selectedVar.allowedValues[0] ??
+//                                       ""
+//                                     }
+//                                     onChange={(e) =>
+//                                       updateVariant(
+//                                         activeIndex,
+//                                         vIdx,
+//                                         "value",
+//                                         e.target.value,
+//                                       )
+//                                     }
+//                                     className="bg-transparent font-bold text-gray-800 focus:outline-none cursor-pointer w-full text-xs"
+//                                   >
+//                                     {selectedVar.allowedValues.map((val) => (
+//                                       <option key={val} value={val}>
+//                                         {val}
+//                                       </option>
+//                                     ))}
+//                                   </select>
+//                                 ) : isString ? (
+//                                   <input
+//                                     type="text"
+//                                     value={variant.value ?? ""}
+//                                     placeholder="text..."
+//                                     onChange={(e) =>
+//                                       updateVariant(
+//                                         activeIndex,
+//                                         vIdx,
+//                                         "value",
+//                                         e.target.value,
+//                                       )
+//                                     }
+//                                     className="bg-transparent focus:underline font-bold text-gray-800 w-full focus:outline-none border-b border-dashed border-gray-200 focus:border-blue-400 truncate text-xs"
+//                                   />
+//                                 ) : (
+//                                   <select
+//                                     value={
+//                                       variant.value === false ||
+//                                       variant.value === "false"
+//                                         ? "false"
+//                                         : "true"
+//                                     }
+//                                     onChange={(e) =>
+//                                       updateVariant(
+//                                         activeIndex,
+//                                         vIdx,
+//                                         "value",
+//                                         e.target.value === "true",
+//                                       )
+//                                     }
+//                                     className="bg-transparent font-black text-gray-800 cursor-pointer w-full text-xs outline-none"
+//                                   >
+//                                     <option value="true">TRUE</option>
+//                                     <option value="false">FALSE</option>
+//                                   </select>
+//                                 )}
+//                               </div>
+//                             </div>
+
+//                             <button
+//                               onClick={() => removeVariant(activeIndex, vIdx)}
+//                               className="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors flex-shrink-0"
+//                             >
+//                               <Trash2 size={12} />
+//                             </button>
+//                           </div>
+
+//                           {/* Alternative Widescreen Variant Input Text Area */}
+//                           <div className="space-y-1">
+//                             <label className="text-[9px] font-black text-gray-400 uppercase tracking-tight">
+//                               Alternative Text Display Value
+//                             </label>
+//                             <textarea
+//                               rows={2}
+//                               value={variant.text || ""}
+//                               onChange={(e) =>
+//                                 updateVariant(
+//                                   activeIndex,
+//                                   vIdx,
+//                                   "text",
+//                                   e.target.value,
+//                                 )
+//                               }
+//                               placeholder='e.g., "Welcome back, adventurer! You returned safely."'
+//                               className="w-full bg-white border border-gray-200 rounded-lg p-2.5 text-xs text-gray-700 placeholder-gray-300 italic focus:outline-none focus:border-blue-400 resize-none font-medium shadow-inner"
+//                             />
+//                           </div>
+//                         </div>
+//                       );
+//                     })}
+
+//                     {currentVariants.length === 0 && (
+//                       <div className="text-center py-6 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-[10px] text-gray-400 font-bold uppercase">
+//                         This element uses the parent text block across all
+//                         engine scenarios.
+//                       </div>
+//                     )}
+//                   </div>
+//                 </div>
+//               </div>
+
+//               {/* Bottom Footer Completion Lock Row */}
+//               <footer className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex justify-end shrink-0">
+//                 <button
+//                   onClick={() => setActiveIndex(null)}
+//                   className="px-4 py-2 bg-gray-900 text-white hover:bg-black rounded-xl text-xs font-black uppercase tracking-wider transition-all"
+//                 >
+//                   Save Line Changes
+//                 </button>
+//               </footer>
+//             </div>
+//           </div>,
+//           document.body, // Appends structural overlay markup safely to top-level window layout container
+//         )}
+//     </div>
+//   );
+// }

@@ -767,7 +767,14 @@ export const useLoreStore = create(
             let defVal = false;
             if (newItem.type === "number") defVal = 0;
             if (newItem.type === "string") defVal = "";
-            finalItem = { ...newItem, defaultValue: defVal };
+            // finalItem = { ...newItem, defaultValue: defVal };
+
+            finalItem = {
+              ...newItem,
+              defaultValue: defVal,
+              // ✅ CRITICAL INTERCEPT: Seed a safe, empty array instance for string variables right at birth
+              ...(newItem.type === "string" ? { allowedValues: [] } : {}),
+            };
           }
           return {
             lists: {
@@ -1053,10 +1060,22 @@ export const useLoreStore = create(
           const newVarName = field === "name" ? value : oldVarName;
 
           const updatedVar = { ...oldVar, [field]: value };
+          // if (field === "type") {
+          //   if (value === "number") updatedVar.defaultValue = 0;
+          //   else if (value === "string") updatedVar.defaultValue = "";
+          //   else updatedVar.defaultValue = false;
+          // }
           if (field === "type") {
-            if (value === "number") updatedVar.defaultValue = 0;
-            else if (value === "string") updatedVar.defaultValue = "";
-            else updatedVar.defaultValue = false;
+            if (value === "number") {
+              updatedVar.defaultValue = 0;
+              delete updatedVar.allowedValues; // Clear old string enum configurations
+            } else if (value === "string") {
+              updatedVar.defaultValue = "";
+              updatedVar.allowedValues = []; // Initialize clean enum matrix array
+            } else {
+              updatedVar.defaultValue = false;
+              delete updatedVar.allowedValues; // Clear old string enum configurations
+            }
           }
           newList[index] = updatedVar;
 
@@ -1247,6 +1266,66 @@ export const useLoreStore = create(
           };
         });
       },
+
+      // ── REGISTRY ACTIONS ──
+
+      registerNpc: (npcId) =>
+        set((state) => ({
+          conversationRegistry: {
+            ...state.conversationRegistry,
+            [npcId]: [
+              {
+                id: crypto.randomUUID(),
+                priority: 0,
+                condition: null,
+                graph: "",
+              },
+            ],
+          },
+        })),
+
+      updateRegistryRule: (npcId, ruleId, updates) =>
+        set((state) => ({
+          conversationRegistry: {
+            ...state.conversationRegistry,
+            [npcId]: state.conversationRegistry[npcId].map((r) =>
+              r.id === ruleId ? { ...r, ...updates } : r,
+            ),
+          },
+        })),
+
+      addRegistryRule: (npcId) =>
+        set((state) => ({
+          conversationRegistry: {
+            ...state.conversationRegistry,
+            [npcId]: [
+              {
+                id: crypto.randomUUID(),
+                priority: 10,
+                condition: { variable: "", op: "==", value: "" },
+                graph: "",
+              },
+              ...state.conversationRegistry[npcId],
+            ],
+          },
+        })),
+
+      deleteRegistryRule: (npcId, ruleId) =>
+        set((state) => ({
+          conversationRegistry: {
+            ...state.conversationRegistry,
+            [npcId]: state.conversationRegistry[npcId].filter(
+              (r) => r.id !== ruleId,
+            ),
+          },
+        })),
+
+      deleteNpcFromRegistry: (npcId) =>
+        set((state) => {
+          const newRegistry = { ...state.conversationRegistry };
+          delete newRegistry[npcId];
+          return { conversationRegistry: newRegistry };
+        }),
 
       // RESTORED LOCALIZATION SYSTEM MATRIX ENGINE ACTIONS
       addLanguage: (code) =>
@@ -1523,11 +1602,28 @@ export const useLoreStore = create(
           };
         });
 
+        // const compiledVariables = Object.entries(lists)
+        //   .filter(([id]) => listMetadata[id] === "variable")
+        //   .reduce((acc, [_, items]) => {
+        //     items.forEach((v) => {
+        //       acc[v.name] = { type: v.type, default: v.defaultValue };
+        //     });
+        //     return acc;
+        //   }, {});
+
+        // ── Find this block inside exportGameData inside store.js ──
         const compiledVariables = Object.entries(lists)
           .filter(([id]) => listMetadata[id] === "variable")
           .reduce((acc, [_, items]) => {
             items.forEach((v) => {
-              acc[v.name] = { type: v.type, default: v.defaultValue };
+              acc[v.name] = {
+                type: v.type,
+                default: v.defaultValue,
+                // Expose choices to your game engine runtime if they exist
+                ...(v.type === "string" && Array.isArray(v.allowedValues)
+                  ? { allowedValues: v.allowedValues }
+                  : {}),
+              };
             });
             return acc;
           }, {});
