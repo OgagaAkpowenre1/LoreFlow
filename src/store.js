@@ -402,6 +402,15 @@ export const useLoreStore = create(
           } else {
             return; // Defensive protection against illegal ports
           }
+        } else if (sourceNode.type === "switch") {
+          animated = true;
+          if (connection.sourceHandle === "default-output") {
+            edgeStyle.stroke = "#9ca3af";
+            edgeLabel = "DEFAULT";
+          } else {
+            edgeStyle.stroke = "#a855f7"; // Purple for Switch branches
+            edgeLabel = connection.sourceHandle;
+          }
         } else if (sourceNode.type === "scene" && sourceNode.data?.choices) {
           const choice = sourceNode.data.choices.find(
             (c) => c.id === connection.sourceHandle,
@@ -432,7 +441,17 @@ export const useLoreStore = create(
 
       // NODE LIFECYCLE MANAGEMENT MUTATORS
       addNode: (type) => {
-        const { activeGraph } = get();
+        const { activeGraph, graphs } = get();
+        const currentGraph = graphs[activeGraph];
+        if (!currentGraph) return;
+
+        // ── CALCULATE VIEWPORT CENTER ──
+        // viewport contains { x, y, zoom }.
+        // We calculate the center relative to the zoom level.
+        const { x, y, zoom } = currentGraph.viewport;
+        const centerX = (-x + window.innerWidth / 2.5) / zoom;
+        const centerY = (-y + window.innerHeight / 2) / zoom;
+
         const id = crypto.randomUUID();
         const defaultLogicData = {
           logicalOperator: "AND",
@@ -449,7 +468,7 @@ export const useLoreStore = create(
         const newNode = {
           id,
           type,
-          position: { x: 100, y: 100 },
+          position: { x: centerX, y: centerY },
           zIndex: type === "collection" ? -10 : 10,
           data:
             type === "scene"
@@ -461,9 +480,11 @@ export const useLoreStore = create(
                 }
               : type === "logic"
                 ? defaultLogicData
-                : type === "jump"
-                  ? { targetGraph: "" }
-                  : {},
+                : type === "switch"
+                  ? { check_flag: "" }
+                  : type === "jump"
+                    ? { targetGraph: "" }
+                    : {},
         };
 
         set((state) => {
@@ -647,6 +668,15 @@ export const useLoreStore = create(
               }
               return edge;
             });
+          }
+        } else if (oldNode?.type === "switch") {
+          if (oldNode.data?.check_flag !== newData.check_flag) {
+            // Sever old enum edges if variable changes, but keep the default fallback
+            newEdges = newEdges.filter(
+              (edge) =>
+                edge.source !== nodeId ||
+                edge.sourceHandle === "default-output",
+            );
           }
         }
 
@@ -874,6 +904,15 @@ export const useLoreStore = create(
                   );
                   if (newData.conditions.length !== originalLength)
                     nodeDataHasChanges = true;
+                }
+
+                if (
+                  node.type === "switch" &&
+                  newData.check_flag === oldVarName
+                ) {
+                  dataChanged = true;
+                  // newData.check_flag = newVarName; // For updateVariable
+                  newData.check_flag = "";   // For removeItemFromList
                 }
                 if (newData.flags) {
                   const originalLength = newData.flags.length;
@@ -1114,6 +1153,15 @@ export const useLoreStore = create(
                   });
                 }
 
+                if (
+                  node.type === "switch" &&
+                  newData.check_flag === oldVarName
+                ) {
+                  dataChanged = true;
+                  newData.check_flag = newVarName; // For updateVariable
+                  // OR newData.check_flag = "";   // For removeItemFromList
+                }
+
                 if (newData.flags) {
                   newData.flags = newData.flags.map((f) => {
                     if (f.key === oldVarName) {
@@ -1198,6 +1246,15 @@ export const useLoreStore = create(
                     }
                     return c;
                   });
+                }
+
+                if (
+                  node.type === "switch" &&
+                  newData.check_flag === oldVarName
+                ) {
+                  dataChanged = true;
+                  newData.check_flag = newVarName; // For updateVariable
+                  // OR newData.check_flag = "";   // For removeItemFromList
                 }
 
                 if (newData.flags) {
