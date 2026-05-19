@@ -1294,21 +1294,53 @@ export const useLoreStore = create(
           },
         })),
 
+      // addRegistryRule: (npcId) =>
+      //   set((state) => ({
+      //     conversationRegistry: {
+      //       ...state.conversationRegistry,
+      //       [npcId]: [
+      //         {
+      //           id: crypto.randomUUID(),
+      //           priority: 10,
+      //           condition: { variable: "", op: "==", value: "" },
+      //           graph: "",
+      //         },
+      //         ...state.conversationRegistry[npcId],
+      //       ],
+      //     },
+      //   })),
+
       addRegistryRule: (npcId) =>
-        set((state) => ({
-          conversationRegistry: {
-            ...state.conversationRegistry,
-            [npcId]: [
-              {
-                id: crypto.randomUUID(),
-                priority: 10,
-                condition: { variable: "", op: "==", value: "" },
-                graph: "",
-              },
-              ...state.conversationRegistry[npcId],
-            ],
-          },
-        })),
+        set((state) => {
+          const currentRules = state.conversationRegistry[npcId] || [];
+
+          // Find the highest current priority value among existing rules for this NPC
+          const maxPriority = currentRules.reduce(
+            (max, rule) => Math.max(max, rule.priority || 0),
+            0,
+          );
+
+          // Escalates by 10 above the current max (defaults to 10 if it's the first conditional rule)
+          const nextPriority =
+            maxPriority === 0 && currentRules.length <= 1
+              ? 10
+              : maxPriority + 10;
+
+          return {
+            conversationRegistry: {
+              ...state.conversationRegistry,
+              [npcId]: [
+                {
+                  id: crypto.randomUUID(),
+                  priority: nextPriority,
+                  condition: { variable: "", op: "==", value: "" },
+                  graph: "",
+                },
+                ...currentRules,
+              ],
+            },
+          };
+        }),
 
       deleteRegistryRule: (npcId, ruleId) =>
         set((state) => ({
@@ -1602,16 +1634,6 @@ export const useLoreStore = create(
           };
         });
 
-        // const compiledVariables = Object.entries(lists)
-        //   .filter(([id]) => listMetadata[id] === "variable")
-        //   .reduce((acc, [_, items]) => {
-        //     items.forEach((v) => {
-        //       acc[v.name] = { type: v.type, default: v.defaultValue };
-        //     });
-        //     return acc;
-        //   }, {});
-
-        // ── Find this block inside exportGameData inside store.js ──
         const compiledVariables = Object.entries(lists)
           .filter(([id]) => listMetadata[id] === "variable")
           .reduce((acc, [_, items]) => {
@@ -1628,6 +1650,14 @@ export const useLoreStore = create(
             return acc;
           }, {});
 
+        // ── NEW: Dynamic sorting sweep by priority descending for production compilation ──
+        const compiledRegistry = {};
+        Object.entries(conversationRegistry).forEach(([npcId, rules]) => {
+          compiledRegistry[npcId] = [...rules].sort(
+            (a, b) => b.priority - a.priority,
+          );
+        });
+
         const bundle = {
           version: "2.0",
           metadata: {
@@ -1635,7 +1665,7 @@ export const useLoreStore = create(
             exportedAt: new Date().toISOString(),
             startGraph,
           },
-          registry: conversationRegistry,
+          registry: compiledRegistry,
           locales,
           variables: compiledVariables,
           graphs: exportGraphs,
