@@ -908,7 +908,7 @@ export const useLoreStore = create(
 
                 if (
                   node.type === "switch" &&
-                  newData.check_flag === oldVarName
+                  newData.check_flag === deleteName
                 ) {
                   dataChanged = true;
                   // newData.check_flag = newVarName; // For updateVariable
