@@ -61,6 +61,7 @@ export const useLoreStore = create(
       conversationRegistry: {},
       editingNodeId: null,
       sidebarOpen: true, // Restored state property
+      isSimulatorOpen: false,
 
       // LOCALIZATION STATE
       languages: ["en"],
@@ -180,6 +181,8 @@ export const useLoreStore = create(
       setEditingNode: (id) => set({ editingNodeId: id }),
       toggleSidebar: () =>
         set((state) => ({ sidebarOpen: !state.sidebarOpen })), // Restored Action
+      toggleSimulator: () =>
+        set((state) => ({ isSimulatorOpen: !state.isSimulatorOpen })),
 
       resetProject: () => {
         if (!confirm("This will delete your entire map. Are you sure?")) return;
@@ -912,7 +915,7 @@ export const useLoreStore = create(
                 ) {
                   dataChanged = true;
                   // newData.check_flag = newVarName; // For updateVariable
-                  newData.check_flag = "";   // For removeItemFromList
+                  newData.check_flag = ""; // For removeItemFromList
                 }
                 if (newData.flags) {
                   const originalLength = newData.flags.length;

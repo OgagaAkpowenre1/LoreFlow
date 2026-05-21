@@ -3,6 +3,7 @@ import { Settings } from "lucide-react"; // Added this import
 import MainFlow from "./components/MainFlow";
 import SettingsEditor from "./components/SettingsEditor";
 import GraphNavigator from "./components/GraphNavigator";
+import Simulator from "./components/Simulator";
 import { ReactFlowProvider } from "reactflow";
 
 export default function App() {
@@ -31,6 +32,8 @@ export default function App() {
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
       />
+
+      <Simulator />
 
       <GraphNavigator />
     </div>

@@ -13,6 +13,7 @@ import {
   MoveRight,
   Globe, // Added for Localization Panel
   FileText, // Added for CSV action icon
+  PlayCircle,
 } from "lucide-react";
 import { useLoreStore } from "../store";
 import ImportButton from "./ImportButton";
@@ -121,7 +122,6 @@ export default function Navbar() {
               onClick={() => addNode("switch")}
               title="Add Switch Node"
               className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition-all hover:scale-105 shadow-md shadow-orange-200"
-
             >
               <GitBranch size={16} /> Switch
             </button>
@@ -147,13 +147,19 @@ export default function Navbar() {
         {/* Persistence & Export */}
         <div className="flex items-center gap-2 relative">
           <ImportButton />
-
           <button
             onClick={exportProject}
             className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
             title="Save Project (.lore)"
           >
             <Save size={22} />
+          </button>
+
+          <button
+            onClick={() => useLoreStore.getState().toggleSimulator()}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition-all shadow-md shadow-purple-200 ml-2"
+          >
+            <PlayCircle size={18} /> Test Engine
           </button>
 
           {/* ── LOCALIZATION DROPDOWN PIPELINE ── */}
@@ -191,7 +197,6 @@ export default function Navbar() {
               </div>
             )}
           </div>
-
           <button
             onClick={exportGameData}
             className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-black transition-all"
