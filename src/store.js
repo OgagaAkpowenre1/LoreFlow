@@ -71,22 +71,32 @@ export const useLoreStore = create(
       // SCHEMA DEFINITIONS
       schema: {
         nodeFields: [
-          { id: "title", label: "Scene Title", type: "text" },
+          { id: "title", label: "Scene Title", type: "text", core: true },
           {
             id: "background",
             label: "Background Image",
             type: "list",
             listId: "backgrounds",
           },
-          { id: "flags", label: "Scene Flags", type: "flag_group" },
+          { id: "flags", label: "Scene Flags", type: "flag_group", core: true },
           {
             id: "music",
             label: "BGM Track",
             type: "list",
             listId: "music_tracks",
           },
-          { id: "dialogueLines", label: "Dialogue Sequence", type: "sequence" },
-          { id: "choices", label: "Branching Choices", type: "choice_list" },
+          {
+            id: "dialogueLines",
+            label: "Dialogue Sequence",
+            type: "sequence",
+            core: true,
+          },
+          {
+            id: "choices",
+            label: "Branching Choices",
+            type: "choice_list",
+            core: true,
+          },
         ],
         sequenceFields: [
           {
@@ -94,8 +104,9 @@ export const useLoreStore = create(
             label: "Speaker",
             type: "list",
             listId: "characters",
+            core: true,
           },
-          { id: "text", label: "Dialogue Text", type: "textarea" },
+          { id: "text", label: "Dialogue Text", type: "textarea", core: true },
           {
             id: "portrait",
             label: "Portrait/Expression",
@@ -184,8 +195,13 @@ export const useLoreStore = create(
       toggleSimulator: () =>
         set((state) => ({ isSimulatorOpen: !state.isSimulatorOpen })),
 
-      resetProject: () => {
-        if (!confirm("This will delete your entire map. Are you sure?")) return;
+      clearGraph: () => {
+        if (
+          !confirm(
+            "This will clear all nodes and edges from the current graph. Are you sure?",
+          )
+        )
+          return;
         const { activeGraph } = get();
         set((state) => ({
           graphs: {
@@ -194,6 +210,42 @@ export const useLoreStore = create(
           },
           editingNodeId: null,
         }));
+      },
+
+      deleteProject: () => {
+        if (
+          !confirm(
+            "WARNING: This will permanently delete your entire project, including all graphs, lists, variables, and registry rules.\n\nAre you absolutely sure?",
+          )
+        )
+          return;
+
+        // Fully obliterates the store and restores the initial factory seed state
+        set({
+          projectName: "Untitled Lore",
+          activeGraph: "Main Story",
+          startGraph: "Main Story",
+          graphs: { "Main Story": createEmptyGraph() },
+          graphFolders: [],
+          activeFolder: null,
+          conversationRegistry: {},
+          editingNodeId: null,
+          languages: ["en"],
+          currentLanguage: "en",
+          locales: { en: {} },
+          lists: {
+            characters: ["Narrator", "Protagonist", "Mysterious Stranger"],
+            backgrounds: ["Tavern_Night", "Forest_Path", "Castle_Gate"],
+            music_tracks: ["Peaceful_Town", "Battle_Theme", "Suspense_Ambient"],
+            expressions: ["Neutral", "Happy", "Angry", "Surprised"],
+            sfx_list: ["Door_Creek", "Sword_Clash", "Gold_Coins"],
+            variables: [
+              { name: "game_started", type: "boolean", defaultValue: false },
+              { name: "gold_amount", type: "number", defaultValue: 0 },
+            ],
+            operators: ["==", "!=", ">", "<", ">=", "<="],
+          },
+        });
       },
 
       // GRAPH PERSISTENCE OPERATIONS
@@ -763,15 +815,116 @@ export const useLoreStore = create(
           },
         })),
 
-      removeFieldFromSchema: (target, fieldId) =>
-        set((state) => ({
-          schema: {
+      // NEW: Live Structural Schema Remapping (Clears invalid data when dropdown targets shift)
+      updateFieldInSchema: (target, fieldId, updates) =>
+        set((state) => {
+          const oldField = state.schema[target].find((f) => f.id === fieldId);
+          if (!oldField) return state;
+
+          const newField = { ...oldField, ...updates };
+          const newSchema = {
             ...state.schema,
-            [target]: (state.schema[target] || []).filter(
-              (f) => f.id !== fieldId,
+            [target]: state.schema[target].map((f) =>
+              f.id === fieldId ? newField : f,
             ),
-          },
-        })),
+          };
+
+          let newGraphs = { ...state.graphs };
+          let graphHasChanges = false;
+
+          // DEFENSIVE REMAP: Trigger validation if list source changes OR if field type converts TO a list
+          if (newField.type === "list" && newField.listId) {
+            const isNewList = oldField.listId !== newField.listId;
+            const isNewType = oldField.type !== "list";
+
+            if (isNewList || isNewType) {
+              const newListItems = state.lists[newField.listId] || [];
+              const validValues = newListItems.map((v) =>
+                typeof v === "object" ? v.name : v,
+              );
+
+              Object.keys(newGraphs).forEach((gKey) => {
+                let localGraphChanged = false;
+                const updatedNodes = newGraphs[gKey].nodes.map((node) => {
+                  let newData = { ...node.data };
+                  let nodeChanged = false;
+
+                  if (
+                    target === "nodeFields" &&
+                    newData[fieldId] &&
+                    !validValues.includes(newData[fieldId])
+                  ) {
+                    newData[fieldId] = "";
+                    nodeChanged = true;
+                  } else if (
+                    target === "sequenceFields" &&
+                    newData.dialogueLines
+                  ) {
+                    newData.dialogueLines = newData.dialogueLines.map(
+                      (line) => {
+                        if (
+                          line[fieldId] &&
+                          !validValues.includes(line[fieldId])
+                        ) {
+                          nodeChanged = true;
+                          return { ...line, [fieldId]: "" };
+                        }
+                        return line;
+                      },
+                    );
+                  }
+                  if (nodeChanged) localGraphChanged = true;
+                  return nodeChanged ? { ...node, data: newData } : node;
+                });
+
+                if (localGraphChanged) {
+                  graphHasChanges = true;
+                  newGraphs[gKey] = { ...newGraphs[gKey], nodes: updatedNodes };
+                }
+              });
+            }
+          }
+
+          return {
+            schema: newSchema,
+            ...(graphHasChanges ? { graphs: newGraphs } : {}),
+          };
+        }),
+
+      // UPGRADED: Instantly deletes ghost payloads off the canvas when a schema field is dropped
+      removeFieldFromSchema: (target, fieldId) =>
+        set((state) => {
+          const newSchema = {
+            ...state.schema,
+            [target]: state.schema[target].filter((f) => f.id !== fieldId),
+          };
+
+          const newGraphs = { ...state.graphs };
+          Object.keys(newGraphs).forEach((gKey) => {
+            newGraphs[gKey].nodes = newGraphs[gKey].nodes.map((node) => {
+              let newData = { ...node.data };
+              let changed = false;
+
+              if (target === "nodeFields" && newData[fieldId] !== undefined) {
+                delete newData[fieldId];
+                changed = true;
+              } else if (target === "sequenceFields" && newData.dialogueLines) {
+                newData.dialogueLines = newData.dialogueLines.map((line) => {
+                  if (line[fieldId] !== undefined) {
+                    const newLine = { ...line };
+                    delete newLine[fieldId];
+                    changed = true;
+                    return newLine;
+                  }
+                  return line;
+                });
+              }
+              return changed ? { ...node, data: newData } : node;
+            });
+          });
+
+          return { schema: newSchema, graphs: newGraphs };
+        }),
 
       // RESTORED META-LIST REGISTRATION UTILITIES
       createNewList: (id, type, initialItems = []) =>
@@ -1644,17 +1797,126 @@ export const useLoreStore = create(
       },
 
       // ENGINE COMPILED EXPORTER
+      // exportGameData: () => {
+      //   const {
+      //     graphs,
+      //     lists,
+      //     listMetadata,
+      //     projectName,
+      //     conversationRegistry,
+      //     locales,
+      //     startGraph,
+      //   } = get();
+      //   const exportGraphs = {};
+
+      //   Object.entries(graphs).forEach(([name, data]) => {
+      //     const startNode = data.nodes.find((n) => n.type === "start");
+      //     const startEdge = data.edges.find((e) => e.source === startNode?.id);
+
+      //     exportGraphs[name] = {
+      //       startNode: startEdge ? startEdge.target : null,
+      //       nodes: data.nodes
+      //         .filter((n) => n.type !== "start" && n.type !== "collection")
+      //         .map((node) => {
+      //           const nodeEdges = data.edges.filter(
+      //             (e) => e.source === node.id,
+      //           );
+      //           let nextMapping = nodeEdges.reduce((acc, e) => {
+      //             const key =
+      //               !e.sourceHandle || e.sourceHandle === "default-output"
+      //                 ? "next"
+      //                 : e.sourceHandle;
+      //             acc[key] = e.target;
+      //             return acc;
+      //           }, {});
+
+      //           if (node.type === "logic") {
+      //             if (!nextMapping["true"])
+      //               nextMapping["true"] = nextMapping["false"] || null;
+      //             if (!nextMapping["false"])
+      //               nextMapping["false"] = nextMapping["true"] || null;
+      //           }
+
+      //           return {
+      //             id: node.id,
+      //             type: node.type,
+      //             data: node.data,
+      //             next: nextMapping,
+      //           };
+      //         }),
+      //     };
+      //   });
+
+      //   const compiledVariables = Object.entries(lists)
+      //     .filter(([id]) => listMetadata[id] === "variable")
+      //     .reduce((acc, [_, items]) => {
+      //       items.forEach((v) => {
+      //         acc[v.name] = {
+      //           type: v.type,
+      //           default: v.defaultValue,
+      //           // Expose choices to your game engine runtime if they exist
+      //           ...(v.type === "string" && Array.isArray(v.allowedValues)
+      //             ? { allowedValues: v.allowedValues }
+      //             : {}),
+      //         };
+      //       });
+      //       return acc;
+      //     }, {});
+
+      //   // ── NEW: Dynamic sorting sweep by priority descending for production compilation ──
+      //   const compiledRegistry = {};
+      //   Object.entries(conversationRegistry).forEach(([npcId, rules]) => {
+      //     compiledRegistry[npcId] = [...rules].sort(
+      //       (a, b) => b.priority - a.priority,
+      //     );
+      //   });
+
+      //   const bundle = {
+      //     version: "2.0",
+      //     metadata: {
+      //       projectName,
+      //       exportedAt: new Date().toISOString(),
+      //       startGraph,
+      //     },
+      //     registry: compiledRegistry,
+      //     locales,
+      //     variables: compiledVariables,
+      //     graphs: exportGraphs,
+      //   };
+
+      //   triggerDownload(
+      //     JSON.stringify(bundle, null, 2),
+      //     `${projectName.replace(/\s+/g, "_").toLowerCase()}_export.json`,
+      //     "application/json",
+      //   );
+      // },
+
       exportGameData: () => {
         const {
           graphs,
           lists,
           listMetadata,
+          schema,
           projectName,
           conversationRegistry,
           locales,
           startGraph,
         } = get();
         const exportGraphs = {};
+
+        // Valid execution keys that should never be scrubbed
+        const nodeSchemaKeys = schema.nodeFields.map((f) => f.id);
+        const seqSchemaKeys = schema.sequenceFields.map((f) => f.id);
+        const coreNodeKeys = [
+          "title",
+          "dialogueLines",
+          "choices",
+          "conditions",
+          "flags",
+          "logicalOperator",
+          "targetGraph",
+        ];
+        const coreSeqKeys = ["id", "variants"];
 
         Object.entries(graphs).forEach(([name, data]) => {
           const startNode = data.nodes.find((n) => n.type === "start");
@@ -1684,58 +1946,42 @@ export const useLoreStore = create(
                     nextMapping["false"] = nextMapping["true"] || null;
                 }
 
+                // DEFENSIVE SWEEP: Purge ghost data that isn't mapped to the current schema
+                const scrubbedData = {};
+                Object.keys(node.data).forEach((k) => {
+                  if (nodeSchemaKeys.includes(k) || coreNodeKeys.includes(k))
+                    scrubbedData[k] = node.data[k];
+                });
+
+                if (scrubbedData.dialogueLines) {
+                  scrubbedData.dialogueLines = scrubbedData.dialogueLines.map(
+                    (line) => {
+                      const scrubbedLine = {};
+                      Object.keys(line).forEach((lk) => {
+                        if (
+                          seqSchemaKeys.includes(lk) ||
+                          coreSeqKeys.includes(lk)
+                        )
+                          scrubbedLine[lk] = line[lk];
+                      });
+
+                      // Critical Speaker Guarantee: Prevents engine crashes if "speaker" field was completely deleted
+                      if (!scrubbedLine.speaker)
+                        scrubbedLine.speaker = "Narrator";
+                      return scrubbedLine;
+                    },
+                  );
+                }
+
                 return {
                   id: node.id,
                   type: node.type,
-                  data: node.data,
+                  data: scrubbedData,
                   next: nextMapping,
                 };
               }),
           };
         });
-
-        const compiledVariables = Object.entries(lists)
-          .filter(([id]) => listMetadata[id] === "variable")
-          .reduce((acc, [_, items]) => {
-            items.forEach((v) => {
-              acc[v.name] = {
-                type: v.type,
-                default: v.defaultValue,
-                // Expose choices to your game engine runtime if they exist
-                ...(v.type === "string" && Array.isArray(v.allowedValues)
-                  ? { allowedValues: v.allowedValues }
-                  : {}),
-              };
-            });
-            return acc;
-          }, {});
-
-        // ── NEW: Dynamic sorting sweep by priority descending for production compilation ──
-        const compiledRegistry = {};
-        Object.entries(conversationRegistry).forEach(([npcId, rules]) => {
-          compiledRegistry[npcId] = [...rules].sort(
-            (a, b) => b.priority - a.priority,
-          );
-        });
-
-        const bundle = {
-          version: "2.0",
-          metadata: {
-            projectName,
-            exportedAt: new Date().toISOString(),
-            startGraph,
-          },
-          registry: compiledRegistry,
-          locales,
-          variables: compiledVariables,
-          graphs: exportGraphs,
-        };
-
-        triggerDownload(
-          JSON.stringify(bundle, null, 2),
-          `${projectName.replace(/\s+/g, "_").toLowerCase()}_export.json`,
-          "application/json",
-        );
       },
 
       exportProject: () => {

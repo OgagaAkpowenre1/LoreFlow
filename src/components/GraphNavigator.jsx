@@ -289,13 +289,13 @@ export default function GraphNavigator() {
                 className="p-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md shadow-blue-100"
                 title="New Graph"
               >
-                <Plus size={13} />
+                <Plus size={16} />
               </button>
               <button
                 onClick={toggleSidebar}
-                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-1.5 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <X size={13} />
+                <X size={16} />
               </button>
             </div>
           </div>
@@ -319,13 +319,13 @@ export default function GraphNavigator() {
                 onClick={handleAddFolder}
                 className="p-1.5 bg-blue-600 text-white rounded-lg shrink-0"
               >
-                <Plus size={12} />
+                <Plus size={16} />
               </button>
               <button
                 onClick={() => setIsAddingFolder(false)}
                 className="p-1.5 text-gray-400 hover:text-gray-600 shrink-0"
               >
-                <X size={12} />
+                <X size={16} />
               </button>
             </div>
           )}
@@ -392,10 +392,10 @@ export default function GraphNavigator() {
                   )}
                   <button
                     onClick={() => deleteFolder(folderName)}
-                    className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-opacity ml-1 flex-shrink-0"
+                    className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-500 transition-opacity ml-1 flex-shrink-0"
                     title="Delete folder"
                   >
-                    <X size={10} />
+                    <X size={16} />
                   </button>
                 </div>
                 {folderGraphs.map((name) => renderGraphItem(name))}

@@ -31,9 +31,10 @@ export default function ImportButton() {
       />
       <button
         onClick={() => fileInputRef.current.click()}
-        className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 border border-gray-200 rounded-xl text-xs font-bold hover:bg-gray-50 transition-all shadow-sm"
+        className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors group"
+        // className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 border border-gray-200 rounded-xl text-xs font-bold hover:bg-gray-50 transition-all shadow-sm"
       >
-        <Upload size={24} className="text-blue-500" /> Load Project
+        <Upload size={14} /> Load Project
       </button>
     </>
   );
