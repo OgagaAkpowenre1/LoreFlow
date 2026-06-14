@@ -1891,6 +1891,9 @@ export const useLoreStore = create(
       //   );
       // },
 
+      // ════════════════════════════════════════════════════════════
+      // ENGINE COMPILED EXPORTER
+      // ════════════════════════════════════════════════════════════
       exportGameData: () => {
         const {
           graphs,
@@ -1982,6 +1985,51 @@ export const useLoreStore = create(
               }),
           };
         });
+
+        // Compile Variables with Allowed Values (Enum) support
+        const compiledVariables = Object.entries(lists)
+          .filter(([id]) => listMetadata[id] === "variable")
+          .reduce((acc, [_, items]) => {
+            items.forEach((v) => {
+              acc[v.name] = {
+                type: v.type,
+                default: v.defaultValue,
+                // Expose enum choices to your game engine runtime if they exist
+                ...(v.type === "string" && Array.isArray(v.allowedValues)
+                  ? { allowedValues: v.allowedValues }
+                  : {}),
+              };
+            });
+            return acc;
+          }, {});
+
+        // Dynamic sorting sweep by priority descending for production compilation
+        const compiledRegistry = {};
+        Object.entries(conversationRegistry).forEach(([npcId, rules]) => {
+          compiledRegistry[npcId] = [...rules].sort(
+            (a, b) => b.priority - a.priority,
+          );
+        });
+
+        const bundle = {
+          version: "2.0",
+          metadata: {
+            projectName,
+            exportedAt: new Date().toISOString(),
+            startGraph,
+          },
+          registry: compiledRegistry,
+          locales,
+          variables: compiledVariables,
+          graphs: exportGraphs,
+        };
+
+        // FINAL TRIGGER: Executes the actual browser download action
+        triggerDownload(
+          JSON.stringify(bundle, null, 2),
+          `${projectName.replace(/\s+/g, "_").toLowerCase()}_export.json`,
+          "application/json",
+        );
       },
 
       exportProject: () => {
