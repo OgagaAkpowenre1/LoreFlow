@@ -13,15 +13,27 @@ export default function SceneNode({ id, data, selected }) {
     updateNodeInternals(id);
   }, [id, choices.length, updateNodeInternals]);
 
+  // return (
+  //   <div 
+  //     style={{
+  //       borderColor: accentColor,
+  //       boxShadow: selected
+  //         ? `0 0 20px ${accentColor}44`
+  //         : "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
+  //     }}
+  //     className="w-[260px] rounded-lg bg-white border-2 transition-all duration-300"
+  //   >
   return (
     <div
       style={{
         borderColor: accentColor,
         boxShadow: selected
-          ? `0 0 20px ${accentColor}44`
+          ? `0 0 0 4px ${accentColor}4D, 0 25px 50px -12px ${accentColor}33` // Dynamic ring & shadow-2xl
           : "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
       }}
-      className="w-[260px] rounded-lg bg-white border-2 transition-all duration-300"
+      className={`w-[260px] rounded-lg bg-white border-2 transition-all duration-300 ${
+        selected ? "scale-[1.03]" : "hover:scale-[1.01] hover:shadow-xl"
+      }`}
     >
       {/* TARGET HANDLE (TOP) */}
       <Handle

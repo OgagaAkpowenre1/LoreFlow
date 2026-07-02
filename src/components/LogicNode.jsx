@@ -1,121 +1,163 @@
+// import React from "react";
 // import { Handle, Position } from "reactflow";
 // import { GitBranch, AlertTriangle } from "lucide-react";
+// import { useLoreStore } from "../store"; // Pull global store connection
 
-// export default function LogicNode({ data, selected }) {
+// export default function LogicNode({ id, data, selected }) {
+//   // added 'id' parameter
 //   const accentColor = data.color || "#f97316";
 //   const conditions = data.conditions || [];
+
+//   // ── LAZY VALIDATION SENSOR LAYER (Bug #10 Fix) ──
+//   // Extract live edge state from active workspace canvas configuration
+//   const edges = useLoreStore(
+//     (state) => state.graphs[state.activeGraph]?.edges || [],
+//   );
+
+//   // Verify if both condition vectors are securely attached downstream
+//   const hasTrueBranch = edges.some(
+//     (e) => e.source === id && e.sourceHandle === "true",
+//   );
+//   const hasFalseBranch = edges.some(
+//     (e) => e.source === id && e.sourceHandle === "false",
+//   );
+//   const isIncomplete = !hasTrueBranch || !hasFalseBranch;
 
 //   // Logic Preview Text
 //   const previewText =
 //     conditions.length > 0 ? conditions[0].check_flag || "Unset" : "No Logic";
 
-//   return (
+// return (
+//   <div
+//     className={`w-32  h-32 flex items-center justify-center relative rounded-2xl transition-all duration-300 ${
+//       selected
+//         ? "scale-[1.05] ring-4 ring-orange-500/30 shadow-2xl shadow-orange-500/20"
+//         : "hover:scale-[1.02] hover:shadow-xl"
+//     }`}
+//   >
+//     {/* 1. The Diamond Shape Background */}
 //     <div
-//       className={`w-32 h-32 flex items-center justify-center transition-all ${selected ? "scale-105" : ""}`}
-//     >
-//       {/* 1. The Diamond Shape Background */}
+//       style={{
+//         // Dynamically shifts colors to warn developers of dangling flow maps
+//         borderColor: isIncomplete ? "#ef4444" : accentColor,
+//         backgroundColor: isIncomplete ? "#fff5f5" : `${accentColor}15`,
+//         boxShadow: selected
+//           ? `0 0 25px ${isIncomplete ? "#ef4444" : accentColor}66`
+//           : "0 2px 5px rgba(0,0,0,0.1)",
+//       }}
+//       className="absolute inset-0 rotate-45 rounded-sm border-2 transition-all duration-300"
+//     />
+
+//     {/* ── FLOATING ERROR INDICATOR BADGE ── */}
+//     {isIncomplete && (
 //       <div
+//         className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-full shadow-lg z-30 animate-pulse border border-white"
+//         title="Missing output connection! Ensure both TRUE and FALSE handles are wired to downstream nodes."
+//       >
+//         <AlertTriangle size={10} />
+//       </div>
+//     )}
+
+//     {/* 2. Content Area */}
+//     <div className="relative z-10 flex flex-col items-center text-center p-3 pointer-events-none">
+//       <div
+//         className="p-1.5 rounded-full mb-1 shadow-sm border border-white/50"
 //         style={{
-//           borderColor: accentColor,
-//           backgroundColor: `${accentColor}15`,
-//           boxShadow: selected
-//             ? `0 0 25px ${accentColor}66`
-//             : "0 2px 5px rgba(0,0,0,0.1)",
+//           backgroundColor: isIncomplete ? "#fee2e2" : `${accentColor}30`,
 //         }}
-//         className="absolute inset-0 rotate-45 rounded-sm border-2 transition-all duration-300"
-//       />
-
-//       {/* 2. Content Area */}
-//       <div className="relative z-10 flex flex-col items-center text-center p-3 pointer-events-none">
-//         <div
-//           className="p-1.5 rounded-full mb-1 shadow-sm border border-white/50"
-//           style={{ backgroundColor: `${accentColor}30` }}
-//         >
-//           <GitBranch size={14} style={{ color: accentColor }} />
-//         </div>
-
-//         <span className="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1 leading-none">
-//           {data.logicalOperator || "AND"} CHECK
-//         </span>
-
-//         {/* The "Sticker" for actual data */}
-//         <div className="px-2 py-1 bg-white border border-gray-100 rounded shadow-sm min-w-[70px]">
-//           <p className="text-[10px] font-bold text-gray-800 truncate max-w-[80px] leading-tight">
-//             {previewText}
-//           </p>
-//           {conditions.length > 1 ? (
-//             <p className="text-[8px] font-black text-gray-400 uppercase">
-//               +{conditions.length - 1} more
-//             </p>
-//           ) : (
-//             <p
-//               className="text-[8px] font-black uppercase leading-none"
-//               style={{ color: accentColor }}
-//             >
-//               {conditions[0]?.operator || "=="}{" "}
-//               {String(conditions[0]?.value ?? "true")}
-//             </p>
-//           )}
-//         </div>
+//       >
+//         <GitBranch
+//           size={14}
+//           style={{ color: isIncomplete ? "#ef4444" : accentColor }}
+//         />
 //       </div>
 
-//       {/* 3. Handles - Recessed "Inside" the diamond points */}
-//       <Handle
-//         type="target"
-//         position={Position.Top}
-//         style={{
-//           backgroundColor: accentColor,
-//           width: "16px",
-//           height: "16px",
-//           top: "4px", // Recessed inside the tip
-//         }}
-//         className="z-20 border-4 border-white shadow-md hover:scale-110 transition-transform"
-//       />
-//       <Handle
-//         type="source"
-//         position={Position.Left}
-//         id="true"
-//         style={{
-//           background: "#22c55e",
-//           width: "16px",
-//           height: "16px",
-//           left: "4px", // Recessed inside the tip
-//         }}
-//         className="z-20 border-4 border-white shadow-md hover:scale-110 transition-transform"
-//       />
-//       <Handle
-//         type="source"
-//         position={Position.Right}
-//         id="false"
-//         style={{
-//           background: "#ef4444",
-//           width: "16px",
-//           height: "16px",
-//           right: "4px", // Recessed inside the tip
-//         }}
-//         className="z-20 border-4 border-white shadow-md hover:scale-110 transition-transform"
-//       />
+//       <span
+//         className={`text-[9px] font-black uppercase tracking-widest mb-1 leading-none ${isIncomplete ? "text-red-500" : "text-gray-500"}`}
+//       >
+//         {data.logicalOperator || "AND"} CHECK
+//       </span>
+
+//       {/* The "Sticker" for actual data */}
+//       <div
+//         className={`px-2 py-1 bg-white border rounded shadow-sm min-w-[70px] ${isIncomplete ? "border-red-200" : "border-gray-100"}`}
+//       >
+//         <p className="text-[10px] font-bold text-gray-800 truncate max-w-[80px] leading-tight">
+//           {previewText}
+//         </p>
+//         {conditions.length > 1 ? (
+//           <p className="text-[8px] font-black text-gray-400 uppercase">
+//             +{conditions.length - 1} more
+//           </p>
+//         ) : (
+//           <p
+//             className="text-[8px] font-black uppercase leading-none"
+//             style={{ color: isIncomplete ? "#ef4444" : accentColor }}
+//           >
+//             {conditions[0]?.operator || "=="}{" "}
+//             {String(conditions[0]?.value ?? "true")}
+//           </p>
+//         )}
+//       </div>
 //     </div>
-//   );
+
+//     {/* 3. Handles - Recessed "Inside" the diamond points */}
+//     <Handle
+//       type="target"
+//       position={Position.Top}
+//       style={{
+//         backgroundColor: isIncomplete ? "#ef4444" : accentColor,
+//         width: "16px",
+//         height: "16px",
+//         top: "4px",
+//       }}
+//       className="z-20 border-4 border-white shadow-md hover:scale-110 transition-transform"
+//     />
+//     <Handle
+//       type="source"
+//       position={Position.Left}
+//       id="true"
+//       style={{
+//         background: "#22c55e",
+//         width: "16px",
+//         height: "16px",
+//         left: "4px",
+//       }}
+//       className="z-20 border-4 border-white shadow-md hover:scale-110 transition-transform"
+//     />
+//     <Handle
+//       type="source"
+//       position={Position.Right}
+//       id="false"
+//       style={{
+//         background: "#ef4444",
+//         width: "16px",
+//         height: "16px",
+//         right: "4px",
+//       }}
+//       className="z-20 border-4 border-white shadow-md hover:scale-110 transition-transform"
+//     />
+//   </div>
+// );
 // }
 
 import React from "react";
-import { Handle, Position } from "reactflow";
+import { Handle, Position, useReactFlow } from "reactflow";
 import { GitBranch, AlertTriangle } from "lucide-react";
-import { useLoreStore } from "../store"; // Pull global store connection
+import { useLoreStore } from "../store";
 
 export default function LogicNode({ id, data, selected }) {
-  // added 'id' parameter
   const accentColor = data.color || "#f97316";
   const conditions = data.conditions || [];
 
-  // ── LAZY VALIDATION SENSOR LAYER (Bug #10 Fix) ──
-  // Extract live edge state from active workspace canvas configuration
+  // Expose React Flow's internal state managers for track selection
+  const { getNodes, getEdges, setNodes } = useReactFlow();
+
+  // ── LAZY VALIDATION SENSOR LAYER ──
   const edges = useLoreStore(
     (state) => state.graphs[state.activeGraph]?.edges || [],
   );
 
-  // Verify if both condition vectors are securely attached downstream
   const hasTrueBranch = edges.some(
     (e) => e.source === id && e.sourceHandle === "true",
   );
@@ -124,25 +166,69 @@ export default function LogicNode({ id, data, selected }) {
   );
   const isIncomplete = !hasTrueBranch || !hasFalseBranch;
 
-  // Logic Preview Text
   const previewText =
     conditions.length > 0 ? conditions[0].check_flag || "Unset" : "No Logic";
 
+  // ── BOOLEAN TRACK SELECTION ──
+  // Performs a downstream BFS trace to isolate and toggle a specific branch pathway
+  const toggleTrackSelection = (e, trackHandle) => {
+    e.stopPropagation();
+    const currentEdges = getEdges();
+    const currentNodes = getNodes();
+
+    const trackNodeIds = new Set();
+    const queue = [];
+
+    // Seed the queue with the immediate children attached to the clicked handle
+    currentEdges
+      .filter((edge) => edge.source === id && edge.sourceHandle === trackHandle)
+      .forEach((edge) => queue.push(edge.target));
+
+    // Traverse all downstream routes
+    while (queue.length > 0) {
+      const currentId = queue.shift();
+      if (!trackNodeIds.has(currentId)) {
+        trackNodeIds.add(currentId);
+        currentEdges
+          .filter((edge) => edge.source === currentId)
+          .forEach((edge) => queue.push(edge.target));
+      }
+    }
+
+    if (trackNodeIds.size === 0) return;
+
+    // Check boolean state: Are ALL downstream nodes in this track currently selected?
+    const trackNodes = currentNodes.filter((n) => trackNodeIds.has(n.id));
+    const allSelected = trackNodes.every((n) => n.selected);
+
+    // Flip the selection state for the isolated track
+    setNodes((nds) =>
+      nds.map((node) => {
+        if (trackNodeIds.has(node.id)) {
+          return { ...node, selected: !allSelected };
+        }
+        return node;
+      }),
+    );
+  };
+
   return (
     <div
-      className={`w-32 h-32 flex items-center justify-center relative transition-all ${selected ? "scale-105" : ""}`}
+      className={`w-32 h-32 flex items-center justify-center relative rounded-2xl transition-all duration-300 ${
+        selected ? "scale-[1.05]" : "hover:scale-[1.02]"
+      }`}
     >
-      {/* 1. The Diamond Shape Background */}
+      {/* 1. The Diamond Shape Background (Glow Fixed) */}
       <div
         style={{
-          // Dynamically shifts colors to warn developers of dangling flow maps
           borderColor: isIncomplete ? "#ef4444" : accentColor,
           backgroundColor: isIncomplete ? "#fff5f5" : `${accentColor}15`,
+          // The glow is applied directly to the rotated diamond, replacing Tailwind's square ring
           boxShadow: selected
-            ? `0 0 25px ${isIncomplete ? "#ef4444" : accentColor}66`
+            ? `0 0 0 4px ${isIncomplete ? "#fee2e2" : accentColor}4D, 0 10px 30px ${isIncomplete ? "#ef4444" : accentColor}66`
             : "0 2px 5px rgba(0,0,0,0.1)",
         }}
-        className="absolute inset-0 rotate-45 rounded-sm border-2 transition-all duration-300"
+        className="absolute inset-0 rotate-45 rounded-md border-2 transition-all duration-300"
       />
 
       {/* ── FLOATING ERROR INDICATOR BADGE ── */}
@@ -170,14 +256,18 @@ export default function LogicNode({ id, data, selected }) {
         </div>
 
         <span
-          className={`text-[9px] font-black uppercase tracking-widest mb-1 leading-none ${isIncomplete ? "text-red-500" : "text-gray-500"}`}
+          className={`text-[9px] font-black uppercase tracking-widest mb-1 leading-none ${
+            isIncomplete ? "text-red-500" : "text-gray-500"
+          }`}
         >
           {data.logicalOperator || "AND"} CHECK
         </span>
 
         {/* The "Sticker" for actual data */}
         <div
-          className={`px-2 py-1 bg-white border rounded shadow-sm min-w-[70px] ${isIncomplete ? "border-red-200" : "border-gray-100"}`}
+          className={`px-2 py-1 bg-white border rounded shadow-sm min-w-[70px] ${
+            isIncomplete ? "border-red-200" : "border-gray-100"
+          }`}
         >
           <p className="text-[10px] font-bold text-gray-800 truncate max-w-[80px] leading-tight">
             {previewText}
@@ -198,7 +288,7 @@ export default function LogicNode({ id, data, selected }) {
         </div>
       </div>
 
-      {/* 3. Handles - Recessed "Inside" the diamond points */}
+      {/* 3. Handles */}
       <Handle
         type="target"
         position={Position.Top}
@@ -208,31 +298,41 @@ export default function LogicNode({ id, data, selected }) {
           height: "16px",
           top: "4px",
         }}
-        className="z-20 border-4 border-white shadow-md hover:scale-110 transition-transform"
+        className="z-20 border-4 border-white shadow-md hover:scale-125 transition-transform"
       />
+
+      {/* Interactive True Handle */}
       <Handle
         type="source"
         position={Position.Left}
         id="true"
+        onClick={(e) => toggleTrackSelection(e, "true")}
+        title="Click to select/deselect the entire TRUE pathway"
         style={{
           background: "#22c55e",
           width: "16px",
           height: "16px",
           left: "4px",
+          cursor: "pointer",
         }}
-        className="z-20 border-4 border-white shadow-md hover:scale-110 transition-transform"
+        className="z-20 border-4 border-white shadow-md hover:scale-125 transition-transform"
       />
+
+      {/* Interactive False Handle */}
       <Handle
         type="source"
         position={Position.Right}
         id="false"
+        onClick={(e) => toggleTrackSelection(e, "false")}
+        title="Click to select/deselect the entire FALSE pathway"
         style={{
           background: "#ef4444",
           width: "16px",
           height: "16px",
           right: "4px",
+          cursor: "pointer",
         }}
-        className="z-20 border-4 border-white shadow-md hover:scale-110 transition-transform"
+        className="z-20 border-4 border-white shadow-md hover:scale-125 transition-transform"
       />
     </div>
   );

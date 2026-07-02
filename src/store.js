@@ -1918,6 +1918,7 @@ export const useLoreStore = create(
           "flags",
           "logicalOperator",
           "targetGraph",
+          "check_flag"
         ];
         const coreSeqKeys = ["id", "variants"];
 

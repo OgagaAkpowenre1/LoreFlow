@@ -4,7 +4,11 @@ import { MoveRight } from "lucide-react";
 export default function JumpNode({ data, selected }) {
   return (
     <div
-      className={`w-48 rounded-xl bg-gray-900 border-2 transition-all p-3 ${selected ? "border-blue-500 shadow-lg" : "border-gray-700"}`}
+      className={`w-48 rounded-xl bg-gray-900 border-2 p-3 transition-all duration-300 ${
+        selected
+          ? "border-blue-500 scale-[1.03] ring-4 ring-blue-500/30 shadow-2xl shadow-blue-500/20"
+          : "border-gray-700 shadow-md hover:shadow-xl hover:border-blue-400 hover:scale-[1.01]"
+      }`}
     >
       <Handle
         type="target"
