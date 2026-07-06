@@ -4,9 +4,10 @@ import SequenceEditor from "./SequenceEditor";
 import ChoiceEditor from "./ChoiceEditor";
 import FlagGroup from "./FlagGroup";
 import { useLoreStore } from "../store";
+import { GitBranch, Plus } from "lucide-react";
 
 export default function SceneForm({ node }) {
-  const { schema, updateNodeData } = useLoreStore(); 
+  const { schema, updateNodeData, lists, listMetadata } = useLoreStore(); 
 
   return (
     <div className="space-y-6">

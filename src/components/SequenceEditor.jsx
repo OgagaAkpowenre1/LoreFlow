@@ -11,12 +11,18 @@ import {
   Sliders,
   AlertTriangle,
   CheckCircle,
+  ChevronUp,
+  ChevronDown,
+  Layout,
+  User,
+  Tag,
+  Grip,
 } from "lucide-react";
 
 export default function SequenceEditor({ nodeId, lines = [] }) {
   const { schema, lists, updateNodeData } = useLoreStore();
   const [activeIndex, setActiveIndex] = useState(null);
-  
+
   const listScrollContainerRef = useRef(null);
   const availableVariables = lists.variables || [];
 
@@ -86,11 +92,36 @@ export default function SequenceEditor({ nodeId, lines = [] }) {
     if (activeIndex === index) setActiveIndex(null);
   };
 
+  // ── INJECTED: Array Swapping for Line Rearrangement ──
+  const moveLine = (e, index, direction) => {
+    e.stopPropagation();
+    // Prevent out-of-bounds swapping
+    if (direction === "up" && index === 0) return;
+    if (direction === "down" && index === lines.length - 1) return;
+
+    const newLines = [...lines];
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+
+    // Perform the swap
+    [newLines[index], newLines[targetIndex]] = [
+      newLines[targetIndex],
+      newLines[index],
+    ];
+
+    syncDialogueLinesWithStore(newLines);
+
+    // Keep the active index visually attached to the line that moved
+    if (activeIndex === index) setActiveIndex(targetIndex);
+    else if (activeIndex === targetIndex) setActiveIndex(index);
+  };
+
   // ── TYPE-SAFE VARIANT OPERATION MANIPULATORS ──
   const addVariant = (lineIndex) => {
     const newLines = [...lines];
     const targetLine = { ...newLines[lineIndex] };
-    const currentVariants = Array.isArray(targetLine.variants) ? targetLine.variants : [];
+    const currentVariants = Array.isArray(targetLine.variants)
+      ? targetLine.variants
+      : [];
 
     const firstVar = availableVariables[0];
     let defaultVal = true;
@@ -151,20 +182,66 @@ export default function SequenceEditor({ nodeId, lines = [] }) {
     const newLines = [...lines];
     const targetLine = { ...newLines[lineIndex] };
 
-    targetLine.variants = targetLine.variants.filter((_, i) => i !== variantIndex);
+    targetLine.variants = targetLine.variants.filter(
+      (_, i) => i !== variantIndex,
+    );
     newLines[lineIndex] = targetLine;
     syncDialogueLinesWithStore(newLines);
   };
 
+  //Line dragging setup
+  // Inside the SequenceEditor component, add these state variables:
+  const [draggedIndex, setDraggedIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
+
+  // ── HTML5 DRAG & DROP HANDLERS ──
+  const handleDragStart = (e, index) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+    // Required for Firefox compatibility
+    e.dataTransfer.setData("text/html", "");
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault(); // Necessary to allow dropping
+    if (dragOverIndex !== index) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = (e, dropIndex) => {
+    e.preventDefault();
+    if (draggedIndex !== null && draggedIndex !== dropIndex) {
+      const newLines = [...lines];
+      const draggedItem = newLines.splice(draggedIndex, 1)[0];
+      newLines.splice(dropIndex, 0, draggedItem);
+
+      syncDialogueLinesWithStore(newLines);
+
+      // Keep the active index visually attached to the line that moved
+      if (activeIndex === draggedIndex) setActiveIndex(dropIndex);
+    }
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
   const currentLine = activeIndex !== null ? lines[activeIndex] : null;
-  const currentVariants = currentLine && Array.isArray(currentLine.variants) ? currentLine.variants : [];
+  const currentVariants =
+    currentLine && Array.isArray(currentLine.variants)
+      ? currentLine.variants
+      : [];
 
   // Continuous validation parsing profiles for active text vectors
-  const mainTextValidation = currentLine ? checkStringTokens(currentLine.text) : { invalidTokens: [], validTokens: [] };
+  const mainTextValidation = currentLine
+    ? checkStringTokens(currentLine.text)
+    : { invalidTokens: [], validTokens: [] };
 
   return (
     <div className="flex flex-col h-full w-full overflow-hidden relative">
-      
       {/* ── SIDEBAR MASTER VIEW LIST ── */}
       <div className="flex justify-between items-center bg-white pb-3 shrink-0 sticky top-0 z-10 border-b border-gray-50">
         <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
@@ -178,48 +255,98 @@ export default function SequenceEditor({ nodeId, lines = [] }) {
         </button>
       </div>
 
-      <div 
+      <div
         ref={listScrollContainerRef}
         className="flex-grow overflow-y-auto space-y-2 pt-2 pr-1 custom-scrollbar w-full overflow-x-hidden pb-12"
       >
-        {lines.map((line, index) => {
-          const variantsCount = Array.isArray(line.variants) ? line.variants.length : 0;
-          return (
-            <div
-              key={line.id || index}
-              onClick={() => setActiveIndex(index)}
-              className="group relative bg-gray-50 border border-gray-200 rounded-xl p-3 pl-12 pr-10 cursor-pointer hover:border-blue-400 hover:bg-white hover:shadow-md hover:shadow-gray-50 transition-all min-h-[64px] overflow-hidden select-none"
-            >
-              <div className="absolute left-0 top-0 bottom-0 w-8 bg-gray-100/70 border-r flex items-center justify-center text-[10px] font-black text-gray-400 group-hover:bg-blue-100 group-hover:text-blue-500 transition-colors">
-                {String(index + 1).padStart(2, "0")}
-              </div>
+<div className="space-y-3">
+            {lines.map((line, index) => {
+              const isActive = activeIndex === index;
+              const variantsCount = line.variants?.length || 0;
 
-              <div className="flex justify-between items-center mb-0.5 w-full gap-2">
-                <div className="flex items-center gap-1.5 min-w-0 flex-grow">
-                  <span className="text-[10px] font-black text-blue-600 truncate uppercase tracking-wider">
-                    {line.speaker || "UNASSIGNED SPEAKER"}
-                  </span>
-                  {variantsCount > 0 && (
-                    <span className="text-[8px] px-1.5 py-0.5 bg-blue-100 font-black text-blue-600 rounded flex-shrink-0 uppercase">
-                      +{variantsCount} Var
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={(e) => removeLine(e, index)}
-                  className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 p-1 rounded hover:bg-red-50 transition-all flex-shrink-0"
+              return (
+                <div
+                  key={line.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, index)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, index)}
+                  className={`relative group flex border-2 rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 ${
+                    isActive
+                      ? "border-blue-500 shadow-lg shadow-blue-100 bg-blue-50/30 scale-[1.02] z-10"
+                      : "border-gray-200 bg-white hover:border-blue-300 hover:shadow-md"
+                  } ${
+                    draggedIndex === index ? "opacity-40 scale-95 border-dashed" : ""
+                  } ${
+                    dragOverIndex === index && draggedIndex !== index 
+                      ? "border-t-4 border-t-blue-500 translate-y-1" 
+                      : ""
+                  }`}
+                  onClick={() => setActiveIndex(isActive ? null : index)}
                 >
-                  <Trash2 size={12} />
-                </button>
-              </div>
+                  {/* Left Color Accent & Drag Handle */}
+                  <div
+                    className={`w-8 flex flex-col items-center justify-center shrink-0 border-r border-gray-100 transition-colors ${
+                      isActive ? "bg-blue-500 text-white" : "bg-gray-50 group-hover:bg-blue-50"
+                    }`}
+                  >
+                    <div className="relative group/handle flex items-center justify-center w-full h-full">
+                      {/* Standard Index Number */}
+                      <span className={`text-[10px] font-black group-hover/handle:opacity-0 transition-opacity absolute ${
+                        isActive ? "text-blue-100" : "text-gray-400"
+                      }`}>
+                        {(index + 1).toString().padStart(2, "0")}
+                      </span>
+                      
+                      {/* Drag Grip Icon (Reveals on Hover) */}
+                      <div className={`opacity-0 group-hover/handle:opacity-100 transition-opacity absolute cursor-grab active:cursor-grabbing ${
+                        isActive ? "text-white" : "text-gray-500"
+                      }`}>
+                        <Grip size={14} />
+                      </div>
+                    </div>
+                  </div>
 
-              <p className="text-[11px] text-gray-600 truncate w-full block italic pr-2">
-                "{line.text || "..."}"
-              </p>
-              <ChevronRight size={14} className="absolute top-1/2 -translate-y-1/2 right-3 text-gray-300 pointer-events-none group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all" />
-            </div>
-          );
-        })}
+                  {/* Right Content */}
+                  <div className="p-3 flex-grow min-w-0">
+                    <div className="flex justify-between items-center mb-1 w-full gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0 flex-grow">
+                        <span className="text-[10px] font-black text-blue-700 truncate bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded shadow-sm shrink-0 max-w-[120px]">
+                          {line.speaker || "UNASSIGNED SPEAKER"}
+                        </span>
+                        {variantsCount > 0 && (
+                          <span className="text-[8px] px-1 py-0.5 bg-purple-100 font-extrabold text-purple-600 rounded flex-shrink-0 border border-purple-200">
+                            +{variantsCount} VAR
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* Delete Button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeLine(e, index);
+                        }}
+                        className="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100 shrink-0"
+                        title="Delete Line"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+
+                    <p className="text-xs text-gray-600 font-medium line-clamp-2 pr-2">
+                      {line.text || (
+                        <span className="italic text-gray-300">
+                          Empty dialogue line...
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
         {lines.length === 0 && (
           <div className="text-center py-12 border-2 border-dashed rounded-xl border-gray-200 bg-gray-50/50">
@@ -232,241 +359,335 @@ export default function SequenceEditor({ nodeId, lines = [] }) {
       </div>
 
       {/* ── PORTAL ESCAPE ENGINE MODAL OVERLAY ── */}
-      {activeIndex !== null && currentLine && createPortal(
-        <div 
-          className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[9999] animate-in fade-in duration-200"
-          onClick={() => setActiveIndex(null)}
-        >
-          <div 
-            className="bg-white w-full max-w-3xl h-[80vh] rounded-2xl border border-gray-100 shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
+      {activeIndex !== null &&
+        currentLine &&
+        createPortal(
+          <div
+            className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[9999] animate-in fade-in duration-200"
+            onClick={() => setActiveIndex(null)}
           >
-            {/* Modal Header */}
-            <header className="px-5 py-4 bg-gray-900 text-white flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="bg-blue-500 text-white px-2 py-1 rounded-md text-xs font-black shrink-0">
-                  LINE #{String(activeIndex + 1).padStart(2, "0")}
-                </div>
-                <h3 className="text-xs font-black uppercase tracking-widest text-gray-200 truncate">
-                  Dialogue Element focus studio
-                </h3>
-              </div>
-              <button
-                onClick={() => setActiveIndex(null)}
-                className="p-1.5 hover:bg-gray-800 rounded-full text-gray-400 hover:text-white transition-colors flex-shrink-0"
-              >
-                <X size={18} />
-              </button>
-            </header>
-
-            {/* Scrollable Form Workspace */}
-            <div className="flex-grow overflow-y-auto p-6 space-y-6 custom-scrollbar bg-white">
-              
-              {/* Main Template Input Fields */}
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {schema.sequenceFields.map((field) => (
-                    <div key={field.id} className={`space-y-1 ${field.id === "text" ? "sm:col-span-2" : ""}`}>
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider block">
-                        {field.label}
-                      </label>
-                      <SmartInput
-                        field={field}
-                        value={currentLine[field.id] || ""}
-                        onChange={(val) => updateLine(activeIndex, field.id, val)}
-                      />
-                    </div>
-                  ))}
-                </div>
-
-                {/* Main Row Token Live Parsing Visual Indicators */}
-                {(mainTextValidation.validTokens.length > 0 || mainTextValidation.invalidTokens.length > 0) && (
-                  <div className="flex flex-wrap gap-1.5 p-2 bg-gray-50 border border-gray-200 rounded-xl text-[10px] font-bold">
-                    {mainTextValidation.validTokens.map((t) => (
-                      <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-md">
-                        <CheckCircle size={10} /> token: [{t}]
-                      </span>
-                    ))}
-                    {mainTextValidation.invalidTokens.map((t) => (
-                      <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-50 text-orange-600 border border-orange-200 rounded-md animate-pulse">
-                        <AlertTriangle size={10} /> missing tracking key: [{t}]
-                      </span>
-                    ))}
+            <div
+              className="bg-white w-full max-w-3xl h-[80vh] rounded-2xl border border-gray-100 shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <header className="px-5 py-4 bg-gray-900 text-white flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="bg-blue-500 text-white px-2 py-1 rounded-md text-xs font-black shrink-0">
+                    LINE #{String(activeIndex + 1).padStart(2, "0")}
                   </div>
-                )}
-              </div>
-
-              <hr className="border-gray-100" />
-
-              {/* Conditional Local Sub-branches Track */}
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-1.5">
-                    <Sliders size={14} className="text-blue-500" />
-                    <span className="text-[11px] font-black uppercase tracking-wider text-gray-700">
-                      Conditional Narrative Variants ({currentVariants.length})
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => addVariant(activeIndex)}
-                    className="flex items-center gap-1 text-[10px] font-black bg-blue-50 text-blue-600 px-2.5 py-1.5 rounded-lg hover:bg-blue-100 transition-all"
-                  >
-                    <Plus size={12} /> Add Condition Variant
-                  </button>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-gray-200 truncate">
+                    Dialogue Element focus studio
+                  </h3>
                 </div>
+                <button
+                  onClick={() => setActiveIndex(null)}
+                  className="p-1.5 hover:bg-gray-800 rounded-full text-gray-400 hover:text-white transition-colors flex-shrink-0"
+                >
+                  <X size={18} />
+                </button>
+              </header>
 
-                {/* Sub-variant Card Stack Configuration */}
-                <div className="space-y-3">
-                  {currentVariants.map((variant, vIdx) => {
-                    const selectedVar = availableVariables.find((v) => v.name === variant.check_flag);
-                    const isNumeric = selectedVar?.type === "number";
-                    const isString = selectedVar?.type === "string";
-
-                    // Compute token errors specific to this text area element instance
-                    const variantValidation = checkStringTokens(variant.text);
-
-                    return (
+              {/* Scrollable Form Workspace */}
+              <div className="flex-grow overflow-y-auto p-6 space-y-6 custom-scrollbar bg-white">
+                {/* Main Template Input Fields */}
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {schema.sequenceFields.map((field) => (
                       <div
-                        key={variant.id || vIdx}
-                        className="bg-gray-50 border border-gray-200 rounded-xl p-3.5 space-y-3 relative animate-in fade-in zoom-in-95 duration-150"
+                        key={field.id}
+                        className={`space-y-1 ${field.id === "text" ? "sm:col-span-2" : ""}`}
                       >
-                        {/* Selector Evaluation Action Row */}
-                        <div className="flex items-center justify-between gap-1 bg-white border border-gray-100 rounded-lg p-2 shadow-sm">
-                          <div className="flex items-center gap-1.5 text-xs font-medium text-gray-600 flex-grow min-w-0">
-                            <span className="font-black text-blue-500 text-[10px] uppercase flex-shrink-0">IF</span>
-
-                            <select
-                              value={variant.check_flag}
-                              onChange={(e) => handleVariantVariableChange(activeIndex, vIdx, e.target.value)}
-                              className="bg-transparent font-black text-gray-800 focus:outline-none flex-1 min-w-[50px] w-0 truncate cursor-pointer text-xs"
-                            >
-                              {availableVariables.map((v) => (
-                                <option key={v.name} value={v.name}>{v.name}</option>
-                              ))}
-                              {availableVariables.length === 0 && (
-                                <option value="">No Variables Defined</option>
-                              )}
-                            </select>
-
-                            <select
-                              value={variant.operator || "=="}
-                              onChange={(e) => updateVariant(activeIndex, vIdx, "operator", e.target.value)}
-                              className="bg-transparent font-black text-blue-600 px-1 focus:outline-none cursor-pointer flex-shrink-0 text-xs"
-                            >
-                              <option value="==">==</option>
-                              <option value="!=">!=</option>
-                              {isNumeric && (
-                                <>
-                                  <option value=">">&gt;</option>
-                                  <option value="<">&lt;</option>
-                                  <option value=">=">&gt;=</option>
-                                  <option value="<=">&lt;=</option>
-                                </>
-                              )}
-                            </select>
-
-                            <div className="flex-1 min-w-[40px] w-0 flex">
-                              {isNumeric ? (
-                                <input
-                                  type="number"
-                                  value={variant.value ?? 0}
-                                  onChange={(e) => updateVariant(activeIndex, vIdx, "value", e.target.value === "" ? 0 : Number(e.target.value))}
-                                  className="bg-transparent focus:underline font-bold text-gray-800 w-full focus:outline-none border-b border-dashed border-gray-200 focus:border-blue-400 text-xs"
-                                />
-                              ) : isString && selectedVar.allowedValues && selectedVar.allowedValues.length > 0 ? (
-                                <select
-                                  value={variant.value ?? selectedVar.defaultValue ?? selectedVar.allowedValues[0] ?? ""}
-                                  onChange={(e) => updateVariant(activeIndex, vIdx, "value", e.target.value)}
-                                  className="bg-transparent font-bold text-gray-800 focus:outline-none cursor-pointer w-full text-xs"
-                                >
-                                  {selectedVar.allowedValues.map((val) => (
-                                    <option key={val} value={val}>{val}</option>
-                                  ))}
-                                </select>
-                              ) : isString ? (
-                                <input
-                                  type="text"
-                                  value={variant.value ?? ""}
-                                  placeholder="text..."
-                                  onChange={(e) => updateVariant(activeIndex, vIdx, "value", e.target.value)}
-                                  className="bg-transparent focus:underline font-bold text-gray-800 w-full focus:outline-none border-b border-dashed border-gray-200 focus:border-blue-400 truncate text-xs"
-                                />
-                              ) : (
-                                <select
-                                  value={variant.value === false || variant.value === "false" ? "false" : "true"}
-                                  onChange={(e) => updateVariant(activeIndex, vIdx, "value", e.target.value === "true")}
-                                  className="bg-transparent font-black text-gray-800 cursor-pointer w-full text-xs outline-none"
-                                >
-                                  <option value="true">TRUE</option>
-                                  <option value="false">FALSE</option>
-                                </select>
-                              )}
-                            </div>
-                          </div>
-
-                          <button
-                            onClick={() => removeVariant(activeIndex, vIdx)}
-                            className="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors flex-shrink-0"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-
-                        {/* Alternative Variant Text Block Input */}
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-black text-gray-400 uppercase tracking-tight">
-                            Alternative Text Display Value
-                          </label>
-                          <textarea
-                            rows={2}
-                            value={variant.text || ""}
-                            onChange={(e) => updateVariant(activeIndex, vIdx, "text", e.target.value)}
-                            placeholder='e.g., "Welcome back, [player_name]! Your gold balance is [gold_amount]."'
-                            className="w-full bg-white border border-gray-200 rounded-lg p-2.5 text-xs text-gray-700 placeholder-gray-300 italic focus:outline-none focus:border-blue-400 resize-none font-medium shadow-inner"
-                          />
-                        </div>
-
-                        {/* ── INLINE VARIANT SPECIFIC TOKEN VERIFICATION FOOTER ── */}
-                        {(variantValidation.validTokens.length > 0 || variantValidation.invalidTokens.length > 0) && (
-                          <div className="flex flex-wrap gap-1 mt-1 text-[9px] font-bold">
-                            {variantValidation.validTokens.map((t) => (
-                              <span key={t} className="inline-flex items-center gap-1 px-1.5 py-0.2 bg-green-50 text-green-700 border border-green-100 rounded">
-                                <CheckCircle size={9} /> token verified: [{t}]
-                              </span>
-                            ))}
-                            {variantValidation.invalidTokens.map((t) => (
-                              <span key={t} className="inline-flex items-center gap-1 px-1.5 py-0.2 bg-orange-50 text-orange-600 border border-orange-100 rounded animate-pulse">
-                                <AlertTriangle size={9} /> unrecognized token asset: [{t}]
-                              </span>
-                            ))}
-                          </div>
-                        )}
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider block">
+                          {field.label}
+                        </label>
+                        <SmartInput
+                          field={field}
+                          value={currentLine[field.id] || ""}
+                          onChange={(val) =>
+                            updateLine(activeIndex, field.id, val)
+                          }
+                        />
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
 
-                  {currentVariants.length === 0 && (
-                    <div className="text-center py-6 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-[10px] text-gray-400 font-bold uppercase">
-                      This element uses the parent text block across all engine scenarios.
+                  {/* Main Row Token Live Parsing Visual Indicators */}
+                  {(mainTextValidation.validTokens.length > 0 ||
+                    mainTextValidation.invalidTokens.length > 0) && (
+                    <div className="flex flex-wrap gap-1.5 p-2 bg-gray-50 border border-gray-200 rounded-xl text-[10px] font-bold">
+                      {mainTextValidation.validTokens.map((t) => (
+                        <span
+                          key={t}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-md"
+                        >
+                          <CheckCircle size={10} /> token: [{t}]
+                        </span>
+                      ))}
+                      {mainTextValidation.invalidTokens.map((t) => (
+                        <span
+                          key={t}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-50 text-orange-600 border border-orange-200 rounded-md animate-pulse"
+                        >
+                          <AlertTriangle size={10} /> missing tracking key: [{t}
+                          ]
+                        </span>
+                      ))}
                     </div>
                   )}
                 </div>
-              </div>
-            </div>
 
-            {/* Bottom Footer Completion Lock Row */}
-            <footer className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex justify-end shrink-0">
-              <button
-                onClick={() => setActiveIndex(null)}
-                className="px-4 py-2 bg-gray-900 text-white hover:bg-black rounded-xl text-xs font-black uppercase tracking-wider transition-all"
-              >
-                Save Line Changes
-              </button>
-            </footer>
-          </div>
-        </div>,
-        document.body
-      )}
+                <hr className="border-gray-100" />
+
+                {/* Conditional Local Sub-branches Track */}
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-1.5">
+                      <Sliders size={14} className="text-blue-500" />
+                      <span className="text-[11px] font-black uppercase tracking-wider text-gray-700">
+                        Conditional Narrative Variants ({currentVariants.length}
+                        )
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => addVariant(activeIndex)}
+                      className="flex items-center gap-1 text-[10px] font-black bg-blue-50 text-blue-600 px-2.5 py-1.5 rounded-lg hover:bg-blue-100 transition-all"
+                    >
+                      <Plus size={12} /> Add Condition Variant
+                    </button>
+                  </div>
+
+                  {/* Sub-variant Card Stack Configuration */}
+                  <div className="space-y-3">
+                    {currentVariants.map((variant, vIdx) => {
+                      const selectedVar = availableVariables.find(
+                        (v) => v.name === variant.check_flag,
+                      );
+                      const isNumeric = selectedVar?.type === "number";
+                      const isString = selectedVar?.type === "string";
+
+                      // Compute token errors specific to this text area element instance
+                      const variantValidation = checkStringTokens(variant.text);
+
+                      return (
+                        <div
+                          key={variant.id || vIdx}
+                          className="bg-gray-50 border border-gray-200 rounded-xl p-3.5 space-y-3 relative animate-in fade-in zoom-in-95 duration-150"
+                        >
+                          {/* Selector Evaluation Action Row */}
+                          <div className="flex items-center justify-between gap-1 bg-white border border-gray-100 rounded-lg p-2 shadow-sm">
+                            <div className="flex items-center gap-1.5 text-xs font-medium text-gray-600 flex-grow min-w-0">
+                              <span className="font-black text-blue-500 text-[10px] uppercase flex-shrink-0">
+                                IF
+                              </span>
+
+                              <select
+                                value={variant.check_flag}
+                                onChange={(e) =>
+                                  handleVariantVariableChange(
+                                    activeIndex,
+                                    vIdx,
+                                    e.target.value,
+                                  )
+                                }
+                                className="bg-transparent font-black text-gray-800 focus:outline-none flex-1 min-w-[50px] w-0 truncate cursor-pointer text-xs"
+                              >
+                                {availableVariables.map((v) => (
+                                  <option key={v.name} value={v.name}>
+                                    {v.name}
+                                  </option>
+                                ))}
+                                {availableVariables.length === 0 && (
+                                  <option value="">No Variables Defined</option>
+                                )}
+                              </select>
+
+                              <select
+                                value={variant.operator || "=="}
+                                onChange={(e) =>
+                                  updateVariant(
+                                    activeIndex,
+                                    vIdx,
+                                    "operator",
+                                    e.target.value,
+                                  )
+                                }
+                                className="bg-transparent font-black text-blue-600 px-1 focus:outline-none cursor-pointer flex-shrink-0 text-xs"
+                              >
+                                <option value="==">==</option>
+                                <option value="!=">!=</option>
+                                {isNumeric && (
+                                  <>
+                                    <option value=">">&gt;</option>
+                                    <option value="<">&lt;</option>
+                                    <option value=">=">&gt;=</option>
+                                    <option value="<=">&lt;=</option>
+                                  </>
+                                )}
+                              </select>
+
+                              <div className="flex-1 min-w-[40px] w-0 flex">
+                                {isNumeric ? (
+                                  <input
+                                    type="number"
+                                    value={variant.value ?? 0}
+                                    onChange={(e) =>
+                                      updateVariant(
+                                        activeIndex,
+                                        vIdx,
+                                        "value",
+                                        e.target.value === ""
+                                          ? 0
+                                          : Number(e.target.value),
+                                      )
+                                    }
+                                    className="bg-transparent focus:underline font-bold text-gray-800 w-full focus:outline-none border-b border-dashed border-gray-200 focus:border-blue-400 text-xs"
+                                  />
+                                ) : isString &&
+                                  selectedVar.allowedValues &&
+                                  selectedVar.allowedValues.length > 0 ? (
+                                  <select
+                                    value={
+                                      variant.value ??
+                                      selectedVar.defaultValue ??
+                                      selectedVar.allowedValues[0] ??
+                                      ""
+                                    }
+                                    onChange={(e) =>
+                                      updateVariant(
+                                        activeIndex,
+                                        vIdx,
+                                        "value",
+                                        e.target.value,
+                                      )
+                                    }
+                                    className="bg-transparent font-bold text-gray-800 focus:outline-none cursor-pointer w-full text-xs"
+                                  >
+                                    {selectedVar.allowedValues.map((val) => (
+                                      <option key={val} value={val}>
+                                        {val}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : isString ? (
+                                  <input
+                                    type="text"
+                                    value={variant.value ?? ""}
+                                    placeholder="text..."
+                                    onChange={(e) =>
+                                      updateVariant(
+                                        activeIndex,
+                                        vIdx,
+                                        "value",
+                                        e.target.value,
+                                      )
+                                    }
+                                    className="bg-transparent focus:underline font-bold text-gray-800 w-full focus:outline-none border-b border-dashed border-gray-200 focus:border-blue-400 truncate text-xs"
+                                  />
+                                ) : (
+                                  <select
+                                    value={
+                                      variant.value === false ||
+                                      variant.value === "false"
+                                        ? "false"
+                                        : "true"
+                                    }
+                                    onChange={(e) =>
+                                      updateVariant(
+                                        activeIndex,
+                                        vIdx,
+                                        "value",
+                                        e.target.value === "true",
+                                      )
+                                    }
+                                    className="bg-transparent font-black text-gray-800 cursor-pointer w-full text-xs outline-none"
+                                  >
+                                    <option value="true">TRUE</option>
+                                    <option value="false">FALSE</option>
+                                  </select>
+                                )}
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => removeVariant(activeIndex, vIdx)}
+                              className="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors flex-shrink-0"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+
+                          {/* Alternative Variant Text Block Input */}
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-tight">
+                              Alternative Text Display Value
+                            </label>
+                            <textarea
+                              rows={2}
+                              value={variant.text || ""}
+                              onChange={(e) =>
+                                updateVariant(
+                                  activeIndex,
+                                  vIdx,
+                                  "text",
+                                  e.target.value,
+                                )
+                              }
+                              placeholder='e.g., "Welcome back, [player_name]! Your gold balance is [gold_amount]."'
+                              className="w-full bg-white border border-gray-200 rounded-lg p-2.5 text-xs text-gray-700 placeholder-gray-300 italic focus:outline-none focus:border-blue-400 resize-none font-medium shadow-inner"
+                            />
+                          </div>
+
+                          {/* ── INLINE VARIANT SPECIFIC TOKEN VERIFICATION FOOTER ── */}
+                          {(variantValidation.validTokens.length > 0 ||
+                            variantValidation.invalidTokens.length > 0) && (
+                            <div className="flex flex-wrap gap-1 mt-1 text-[9px] font-bold">
+                              {variantValidation.validTokens.map((t) => (
+                                <span
+                                  key={t}
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.2 bg-green-50 text-green-700 border border-green-100 rounded"
+                                >
+                                  <CheckCircle size={9} /> token verified: [{t}]
+                                </span>
+                              ))}
+                              {variantValidation.invalidTokens.map((t) => (
+                                <span
+                                  key={t}
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.2 bg-orange-50 text-orange-600 border border-orange-100 rounded animate-pulse"
+                                >
+                                  <AlertTriangle size={9} /> unrecognized token
+                                  asset: [{t}]
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {currentVariants.length === 0 && (
+                      <div className="text-center py-6 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-[10px] text-gray-400 font-bold uppercase">
+                        This element uses the parent text block across all
+                        engine scenarios.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Footer Completion Lock Row */}
+              <footer className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex justify-end shrink-0">
+                <button
+                  onClick={() => setActiveIndex(null)}
+                  className="px-4 py-2 bg-gray-900 text-white hover:bg-black rounded-xl text-xs font-black uppercase tracking-wider transition-all"
+                >
+                  Save Line Changes
+                </button>
+              </footer>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

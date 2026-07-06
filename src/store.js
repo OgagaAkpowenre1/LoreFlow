@@ -503,9 +503,17 @@ export const useLoreStore = create(
         // ── CALCULATE VIEWPORT CENTER ──
         // viewport contains { x, y, zoom }.
         // We calculate the center relative to the zoom level.
-        const { x, y, zoom } = currentGraph.viewport;
-        const centerX = (-x + window.innerWidth / 2.5) / zoom;
-        const centerY = (-y + window.innerHeight / 2) / zoom;
+        // const { x, y, zoom } = currentGraph.viewport;
+        // const centerX = (-x + window.innerWidth / 2.5) / zoom;
+        // const centerY = (-y + window.innerHeight / 2) / zoom;
+
+        const vp = currentGraph.viewport || { x: 0, y: 0, zoom: 1 };
+        const vX = vp.x || 0;
+        const vY = vp.y || 0;
+        const vZoom = vp.zoom || 1;
+
+        const centerX = (-vX + window.innerWidth / 2.5) / vZoom;
+        const centerY = (-vY + window.innerHeight / 2) / vZoom;
 
         const id = crypto.randomUUID();
         const defaultLogicData = {
@@ -671,59 +679,133 @@ export const useLoreStore = create(
         }));
       },
 
+      // updateNodeData: (nodeId, newData) => {
+      //   const { activeGraph, graphs } = get();
+      //   const currentGraph = graphs[activeGraph];
+      //   if (!currentGraph) return;
+      //   const oldNode = currentGraph.nodes.find((n) => n.id === nodeId);
+      //   let newEdges = [...currentGraph.edges];
+
+      //   if (oldNode?.type === "scene") {
+      //     const oldChoices = oldNode.data?.choices || [];
+      //     const newChoices = newData.choices || [];
+
+      //     if (oldChoices.length === 0 && newChoices.length > 0) {
+      //       newEdges = newEdges.map((edge) =>
+      //         edge.source === nodeId &&
+      //         (!edge.sourceHandle || edge.sourceHandle === "default-output")
+      //           ? {
+      //               ...edge,
+      //               sourceHandle: newChoices[0].id,
+      //               label: newChoices[0].text,
+      //               style: { ...edge.style, stroke: "#3b82f6" },
+      //             }
+      //           : edge,
+      //       );
+      //     } else if (oldChoices.length > 0 && newChoices.length === 0) {
+      //       let defaultSaved = false;
+      //       newEdges = newEdges.reduce((acc, edge) => {
+      //         if (edge.source === nodeId) {
+      //           if (!defaultSaved) {
+      //             acc.push({
+      //               ...edge,
+      //               sourceHandle: "default-output",
+      //               label: "",
+      //               style: { ...edge.style, stroke: "#9ca3af" },
+      //             });
+      //             defaultSaved = true;
+      //           }
+      //         } else {
+      //           acc.push(edge);
+      //         }
+      //         return acc;
+      //       }, []);
+      //     } else {
+      //       newEdges = newEdges.map((edge) => {
+      //         if (edge.source === nodeId) {
+      //           const match = newChoices.find(
+      //             (c) => c.id === edge.sourceHandle,
+      //           );
+      //           if (match && edge.label !== match.text)
+      //             return { ...edge, label: match.text };
+      //         }
+      //         return edge;
+      //       });
+      //     }
+      //   } else if (oldNode?.type === "switch") {
+      //     if (oldNode.data?.check_flag !== newData.check_flag) {
+      //       // Sever old enum edges if variable changes, but keep the default fallback
+      //       newEdges = newEdges.filter(
+      //         (edge) =>
+      //           edge.source !== nodeId ||
+      //           edge.sourceHandle === "default-output",
+      //       );
+      //     }
+      //   }
+
+      //   set((state) => ({
+      //     graphs: {
+      //       ...state.graphs,
+      //       [activeGraph]: {
+      //         ...currentGraph,
+      //         nodes: currentGraph.nodes.map((n) =>
+      //           n.id === nodeId ? { ...n, data: newData } : n,
+      //         ),
+      //         edges: newEdges,
+      //       },
+      //     },
+      //   }));
+      // },
+
+      // RESTORED LOGIC SUB-CONDITION MUTATORS
+
       updateNodeData: (nodeId, newData) => {
         const { activeGraph, graphs } = get();
         const currentGraph = graphs[activeGraph];
         if (!currentGraph) return;
+
         const oldNode = currentGraph.nodes.find((n) => n.id === nodeId);
         let newEdges = [...currentGraph.edges];
 
         if (oldNode?.type === "scene") {
-          const oldChoices = oldNode.data?.choices || [];
           const newChoices = newData.choices || [];
+          const validChoiceIds = newChoices.map((c) => c.id);
 
-          if (oldChoices.length === 0 && newChoices.length > 0) {
-            newEdges = newEdges.map((edge) =>
+          // 1. FILTER PHASE (Ghost Edge Sweeper)
+          newEdges = newEdges.filter((edge) => {
+            // Only examine wires originating from this specific scene node
+            if (edge.source === nodeId) {
+              // ALWAYS keep the permanent fallback wire
+              if (
+                !edge.sourceHandle ||
+                edge.sourceHandle === "default-output"
+              ) {
+                return true;
+              }
+              // Keep choice wires ONLY if the choice ID still exists in the node data
+              if (validChoiceIds.includes(edge.sourceHandle)) {
+                return true;
+              }
+              // If it's not the default output and the choice was deleted, PURGE IT.
+              return false;
+            }
+            return true;
+          });
+
+          // 2. MAP PHASE (Sync Labels)
+          newEdges = newEdges.map((edge) => {
+            if (
               edge.source === nodeId &&
-              (!edge.sourceHandle || edge.sourceHandle === "default-output")
-                ? {
-                    ...edge,
-                    sourceHandle: newChoices[0].id,
-                    label: newChoices[0].text,
-                    style: { ...edge.style, stroke: "#3b82f6" },
-                  }
-                : edge,
-            );
-          } else if (oldChoices.length > 0 && newChoices.length === 0) {
-            let defaultSaved = false;
-            newEdges = newEdges.reduce((acc, edge) => {
-              if (edge.source === nodeId) {
-                if (!defaultSaved) {
-                  acc.push({
-                    ...edge,
-                    sourceHandle: "default-output",
-                    label: "",
-                    style: { ...edge.style, stroke: "#9ca3af" },
-                  });
-                  defaultSaved = true;
-                }
-              } else {
-                acc.push(edge);
+              edge.sourceHandle !== "default-output"
+            ) {
+              const match = newChoices.find((c) => c.id === edge.sourceHandle);
+              if (match && edge.label !== match.text) {
+                // Update the visual edge label if the writer changed the choice text
+                return { ...edge, label: match.text };
               }
-              return acc;
-            }, []);
-          } else {
-            newEdges = newEdges.map((edge) => {
-              if (edge.source === nodeId) {
-                const match = newChoices.find(
-                  (c) => c.id === edge.sourceHandle,
-                );
-                if (match && edge.label !== match.text)
-                  return { ...edge, label: match.text };
-              }
-              return edge;
-            });
-          }
+            }
+            return edge;
+          });
         } else if (oldNode?.type === "switch") {
           if (oldNode.data?.check_flag !== newData.check_flag) {
             // Sever old enum edges if variable changes, but keep the default fallback
@@ -749,7 +831,6 @@ export const useLoreStore = create(
         }));
       },
 
-      // RESTORED LOGIC SUB-CONDITION MUTATORS
       addConditionToLogic: (nodeId) => {
         const { activeGraph } = get();
         set((state) => ({
@@ -1660,7 +1741,15 @@ export const useLoreStore = create(
         }));
       },
 
-      groupSelectedNodes: (baseColor = "#6366f1") => {
+      groupSelectedNodes: (providedName, baseColor = "#6366f1") => {
+        const isString = typeof providedName === "string";
+        const groupName =
+          isString && providedName.trim() !== ""
+            ? providedName
+            : prompt("Enter collection name:");
+
+        if (!groupName) return state; // Cancelled
+
         const { activeGraph, graphs } = get();
         const currentGraph = graphs[activeGraph];
         if (!currentGraph) return;
@@ -1668,9 +1757,6 @@ export const useLoreStore = create(
           (n) => n.selected && n.type !== "collection",
         );
         if (selectedNodes.length < 1) return;
-
-        const title = window.prompt("Collection Name:", "New Chapter");
-        if (!title) return;
 
         const absPositions = selectedNodes.map((n) =>
           getAbsolutePos(n, currentGraph.nodes),
@@ -1691,7 +1777,7 @@ export const useLoreStore = create(
             width: maxX - minX + padding * 2,
             height: maxY - minY + padding * 2,
           },
-          data: { title, color: baseColor },
+          data: { groupName, color: baseColor },
         };
 
         const nextNodes = currentGraph.nodes.map((node) => {
@@ -1918,7 +2004,7 @@ export const useLoreStore = create(
           "flags",
           "logicalOperator",
           "targetGraph",
-          "check_flag"
+          "check_flag",
         ];
         const coreSeqKeys = ["id", "variants"];
 
