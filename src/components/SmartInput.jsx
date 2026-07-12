@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLoreStore } from "../store";
-import { Plus, ChevronDown } from "lucide-react";
+import { Plus, ChevronDown, X } from "lucide-react";
 
 export default function SmartInput({ field, value, onChange }) {
   const { lists, addToList } = useLoreStore();
@@ -30,73 +30,6 @@ export default function SmartInput({ field, value, onChange }) {
   }
 
   // 2. List / Dropdown with "Add New" Logic
-  // if (field.type === "list") {
-  //   const options = lists[field.listId] || [];
-
-  //   const handleAddNew = () => {
-  //     if (newValue.trim()) {
-  //       addToList(field.listId, newValue.trim());
-  //       onChange(newValue.trim());
-  //       setNewValue("");
-  //       setIsAddingNew(false);
-  //     }
-  //   };
-
-  //   return (
-  //     <div className="space-y-1">
-  //       {isAddingNew ? (
-  //         <div className="flex gap-1">
-  //           <input
-  //             autoFocus
-  //             className="flex-grow p-1 text-xs border rounded outline-none border-blue-500"
-  //             value={newValue}
-  //             onChange={(e) => setNewValue(e.target.value)}
-  //             onKeyDown={(e) => e.key === "Enter" && handleAddNew()}
-  //             placeholder="New entry name..."
-  //           />
-  //           <button
-  //             onClick={handleAddNew}
-  //             className="bg-blue-500 text-white p-1 rounded"
-  //           >
-  //             <Plus size={14} />
-  //           </button>
-  //         </div>
-  //       ) : (
-  //         <div className="relative">
-  //           <select
-  //             className="w-full p-2 pr-8 border rounded text-xs appearance-none bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-  //             value={value || ""}
-  //             onChange={(e) => {
-  //               if (e.target.value === "ADD_NEW_INTERNAL") {
-  //                 setIsAddingNew(true);
-  //               } else {
-  //                 onChange(e.target.value);
-  //               }
-  //             }}
-  //           >
-  //             <option value="">-- Select {field.label} --</option>
-  //             {options.map((opt) => (
-  //               <option key={opt} value={opt}>
-  //                 {opt}
-  //               </option>
-  //             ))}
-  //             <option
-  //               value="ADD_NEW_INTERNAL"
-  //               className="text-blue-600 font-bold"
-  //             >
-  //               + Create New "{field.label}"
-  //             </option>
-  //           </select>
-  //           <ChevronDown
-  //             size={14}
-  //             className="absolute right-2 top-2.5 text-gray-400 pointer-events-none"
-  //           />
-  //         </div>
-  //       )}
-  //     </div>
-  //   );
-  // }
-  // 2. List / Dropdown with "Add New" Logic
   if (field.type === "list") {
     const { listMetadata } = useLoreStore(); // Get metadata to check list type
     const options = lists[field.listId] || [];
@@ -119,6 +52,11 @@ export default function SmartInput({ field, value, onChange }) {
       }
     };
 
+    const handleCancel = () => {
+      setNewValue("")
+      setIsAddingNew(false)
+    }
+
     return (
       <div className="space-y-1">
         {isAddingNew ? (
@@ -136,6 +74,13 @@ export default function SmartInput({ field, value, onChange }) {
               className="bg-blue-500 text-white p-1 rounded"
             >
               <Plus size={14} />
+            </button>
+            <button
+              onClick={handleCancel}
+              className="bg-gray-100 text-gray-500 p-1 rounded hover:bg-red-50 hover:text-red-500 transition-colors shrink-0"
+              title="Cancel"
+            >
+              <X size={14} />
             </button>
           </div>
         ) : (

@@ -259,94 +259,102 @@ export default function SequenceEditor({ nodeId, lines = [] }) {
         ref={listScrollContainerRef}
         className="flex-grow overflow-y-auto space-y-2 pt-2 pr-1 custom-scrollbar w-full overflow-x-hidden pb-12"
       >
-<div className="space-y-3">
-            {lines.map((line, index) => {
-              const isActive = activeIndex === index;
-              const variantsCount = line.variants?.length || 0;
+        <div className="space-y-3">
+          {lines.map((line, index) => {
+            const isActive = activeIndex === index;
+            const variantsCount = line.variants?.length || 0;
 
-              return (
+            return (
+              <div
+                key={line.id}
+                draggable
+                onDragStart={(e) => handleDragStart(e, index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, index)}
+                className={`relative group flex border-2 rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 ${
+                  isActive
+                    ? "border-blue-500 shadow-lg shadow-blue-100 bg-blue-50/30 scale-[1.02] z-10"
+                    : "border-gray-200 bg-white hover:border-blue-300 hover:shadow-md"
+                } ${
+                  draggedIndex === index
+                    ? "opacity-40 scale-95 border-dashed"
+                    : ""
+                } ${
+                  dragOverIndex === index && draggedIndex !== index
+                    ? "border-t-4 border-t-blue-500 translate-y-1"
+                    : ""
+                }`}
+                onClick={() => setActiveIndex(isActive ? null : index)}
+              >
+                {/* Left Color Accent & Drag Handle */}
                 <div
-                  key={line.id}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, index)}
-                  onDragOver={(e) => handleDragOver(e, index)}
-                  onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, index)}
-                  className={`relative group flex border-2 rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 ${
+                  className={`w-8 flex flex-col items-center justify-center shrink-0 border-r border-gray-100 transition-colors ${
                     isActive
-                      ? "border-blue-500 shadow-lg shadow-blue-100 bg-blue-50/30 scale-[1.02] z-10"
-                      : "border-gray-200 bg-white hover:border-blue-300 hover:shadow-md"
-                  } ${
-                    draggedIndex === index ? "opacity-40 scale-95 border-dashed" : ""
-                  } ${
-                    dragOverIndex === index && draggedIndex !== index 
-                      ? "border-t-4 border-t-blue-500 translate-y-1" 
-                      : ""
+                      ? "bg-blue-500 text-white"
+                      : "bg-gray-50 group-hover:bg-blue-50"
                   }`}
-                  onClick={() => setActiveIndex(isActive ? null : index)}
                 >
-                  {/* Left Color Accent & Drag Handle */}
-                  <div
-                    className={`w-8 flex flex-col items-center justify-center shrink-0 border-r border-gray-100 transition-colors ${
-                      isActive ? "bg-blue-500 text-white" : "bg-gray-50 group-hover:bg-blue-50"
-                    }`}
-                  >
-                    <div className="relative group/handle flex items-center justify-center w-full h-full">
-                      {/* Standard Index Number */}
-                      <span className={`text-[10px] font-black group-hover/handle:opacity-0 transition-opacity absolute ${
+                  <div className="relative group/handle flex items-center justify-center w-full h-full">
+                    {/* Standard Index Number */}
+                    <span
+                      className={`text-[10px] font-black group-hover/handle:opacity-0 transition-opacity absolute ${
                         isActive ? "text-blue-100" : "text-gray-400"
-                      }`}>
-                        {(index + 1).toString().padStart(2, "0")}
-                      </span>
-                      
-                      {/* Drag Grip Icon (Reveals on Hover) */}
-                      <div className={`opacity-0 group-hover/handle:opacity-100 transition-opacity absolute cursor-grab active:cursor-grabbing ${
+                      }`}
+                    >
+                      {(index + 1).toString().padStart(2, "0")}
+                    </span>
+
+                    {/* Drag Grip Icon (Reveals on Hover) */}
+                    <div
+                      className={`opacity-0 group-hover/handle:opacity-100 transition-opacity absolute cursor-grab active:cursor-grabbing ${
                         isActive ? "text-white" : "text-gray-500"
-                      }`}>
-                        <Grip size={14} />
-                      </div>
+                      }`}
+                    >
+                      <Grip size={14} />
                     </div>
-                  </div>
-
-                  {/* Right Content */}
-                  <div className="p-3 flex-grow min-w-0">
-                    <div className="flex justify-between items-center mb-1 w-full gap-2">
-                      <div className="flex items-center gap-1.5 min-w-0 flex-grow">
-                        <span className="text-[10px] font-black text-blue-700 truncate bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded shadow-sm shrink-0 max-w-[120px]">
-                          {line.speaker || "UNASSIGNED SPEAKER"}
-                        </span>
-                        {variantsCount > 0 && (
-                          <span className="text-[8px] px-1 py-0.5 bg-purple-100 font-extrabold text-purple-600 rounded flex-shrink-0 border border-purple-200">
-                            +{variantsCount} VAR
-                          </span>
-                        )}
-                      </div>
-                      
-                      {/* Delete Button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeLine(e, index);
-                        }}
-                        className="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100 shrink-0"
-                        title="Delete Line"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-
-                    <p className="text-xs text-gray-600 font-medium line-clamp-2 pr-2">
-                      {line.text || (
-                        <span className="italic text-gray-300">
-                          Empty dialogue line...
-                        </span>
-                      )}
-                    </p>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+
+                {/* Right Content */}
+                <div className="p-3 flex-grow min-w-0">
+                  <div className="flex justify-between items-center mb-1 w-full gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0 flex-grow">
+                      <span className="text-[10px] font-black text-blue-700 truncate bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded shadow-sm shrink-0 max-w-[120px]">
+                        {line.speaker || "UNASSIGNED SPEAKER"}
+                      </span>
+                      {variantsCount > 0 && (
+                        <span className="text-[8px] px-1 py-0.5 bg-purple-100 font-extrabold text-purple-600 rounded flex-shrink-0 border border-purple-200">
+                          +{variantsCount} VAR
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Delete Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeLine(e, index);
+                      }}
+                      className="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100 shrink-0"
+                      title="Delete Line"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+
+                  <p className="text-xs text-gray-600 font-medium line-clamp-2 pr-2">
+                    {line.text || (
+                      <span className="italic text-gray-300">
+                        Empty dialogue line...
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
 
         {lines.length === 0 && (
           <div className="text-center py-12 border-2 border-dashed rounded-xl border-gray-200 bg-gray-50/50">

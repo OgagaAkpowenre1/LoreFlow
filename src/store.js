@@ -494,9 +494,22 @@ export const useLoreStore = create(
         }));
       },
 
+      // ── COLLECTION ISOLATION & VIEW SETTINGS ──
+      focusedCollectionId: null,
+      collectionDisplayMode: "regular", // "regular" | "isolated"
+
+      setFocusedCollectionId: (id) => set({ focusedCollectionId: id }),
+      setCollectionDisplayMode: (mode) =>
+        set({
+          collectionDisplayMode: mode,
+          // Reset focus if they switch back to regular mode to prevent getting trapped
+          focusedCollectionId:
+            mode === "regular" ? null : get().focusedCollectionId,
+        }),
+
       // NODE LIFECYCLE MANAGEMENT MUTATORS
       addNode: (type) => {
-        const { activeGraph, graphs } = get();
+        const { activeGraph, graphs, focusedCollectionId } = get();
         const currentGraph = graphs[activeGraph];
         if (!currentGraph) return;
 
@@ -528,11 +541,42 @@ export const useLoreStore = create(
           ],
         };
 
+        // const newNode = {
+        //   id,
+        //   type,
+        //   position: { x: centerX, y: centerY },
+        //   zIndex: type === "collection" ? -10 : 10,
+        //   data:
+        //     type === "scene"
+        //       ? {
+        //           title: "New Scene",
+        //           dialogueLines: [],
+        //           choices: [],
+        //           flags: [],
+        //         }
+        //       : type === "logic"
+        //         ? defaultLogicData
+        //         : type === "switch"
+        //           ? { check_flag: "" }
+        //           : type === "jump"
+        //             ? { targetGraph: "" }
+        //             : {},
+        // };
+
+        // ── AUTO-PARENT INJECTION ──
+        // If we are isolated inside a collection, force the new node to belong to it.
+        // Note: We don't auto-parent Collections inside Collections to prevent nesting bugs.
+        const resolvedParentId =
+          focusedCollectionId && type !== "collection"
+            ? focusedCollectionId
+            : undefined;
+
         const newNode = {
           id,
           type,
           position: { x: centerX, y: centerY },
           zIndex: type === "collection" ? -10 : 10,
+          parentId: resolvedParentId, // Auto-assigns if in isolation mode
           data:
             type === "scene"
               ? {
@@ -548,7 +592,7 @@ export const useLoreStore = create(
                   : type === "jump"
                     ? { targetGraph: "" }
                     : {},
-        };
+        }
 
         set((state) => {
           const currentGraph = state.graphs[activeGraph];
@@ -1777,7 +1821,7 @@ export const useLoreStore = create(
             width: maxX - minX + padding * 2,
             height: maxY - minY + padding * 2,
           },
-          data: { groupName, color: baseColor },
+          data: { title: groupName, color: baseColor },
         };
 
         const nextNodes = currentGraph.nodes.map((node) => {

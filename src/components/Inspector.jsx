@@ -130,27 +130,43 @@ export default function Inspector({ selectedNode }) {
     );
   };
 
+  // const handleColorChange = (newColor) => {
+  //   if (selectedNode.type === "collection") {
+  //     const updatedNodes = currentNodes.map((n) =>
+  //       n.id === selectedNode.id
+  //         ? { ...n, style: { ...n.style, backgroundColor: newColor } }
+  //         : n,
+  //     );
+  //     setStoreNodes(updatedNodes);
+  //   } else {
+  //     updateNodeData(selectedNode.id, {
+  //       ...selectedNode.data,
+  //       color: newColor,
+  //     });
+  //   }
+  // };
+
+  // const currentColor =
+  //   selectedNode?.type === "collection"
+  //     ? (selectedNode?.style?.backgroundColor ?? "#a855f7")
+  //     : (selectedNode?.data?.color ??
+  //       (selectedNode?.type === "logic" ? "#f97316" : "#3b82f6"));
+
   const handleColorChange = (newColor) => {
-    if (selectedNode.type === "collection") {
-      const updatedNodes = currentNodes.map((n) =>
-        n.id === selectedNode.id
-          ? { ...n, style: { ...n.style, backgroundColor: newColor } }
-          : n,
-      );
-      setStoreNodes(updatedNodes);
-    } else {
-      updateNodeData(selectedNode.id, {
-        ...selectedNode.data,
-        color: newColor,
-      });
-    }
+    // Now ALL nodes (including collections) save their color to the exact same place
+    updateNodeData(selectedNode.id, {
+      ...selectedNode.data,
+      color: newColor,
+    });
   };
 
   const currentColor =
-    selectedNode?.type === "collection"
-      ? (selectedNode?.style?.backgroundColor ?? "#a855f7")
-      : (selectedNode?.data?.color ??
-        (selectedNode?.type === "logic" ? "#f97316" : "#3b82f6"));
+    selectedNode?.data?.color ??
+    (selectedNode?.type === "collection"
+      ? "#a855f7"
+      : selectedNode?.type === "logic"
+        ? "#f97316"
+        : "#3b82f6");
 
   return (
     <aside
