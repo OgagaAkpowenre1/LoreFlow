@@ -12,8 +12,8 @@ import {
   ArrowRight,
   Terminal,
   Tag,
-  Lock, 
-  Monitor
+  Lock,
+  Monitor,
 } from "lucide-react";
 
 export default function SettingsEditor({ isOpen, onClose }) {
@@ -116,13 +116,11 @@ function NavBtn({ active, onClick, icon, label }) {
     SCHEMA TAB
 ════════════════════════════════════════════ */
 function SchemaTab() {
-  const {
-    schema,
-    addFieldToSchema,
-    removeFieldFromSchema,
-    lists,
-    listMetadata,
-  } = useLoreStore();
+  const schema = useLoreStore((s) => s.schema);
+  const addFieldToSchema = useLoreStore((s) => s.addFieldToSchema);
+  const removeFieldFromSchema = useLoreStore((s) => s.removeFieldFromSchema);
+  const lists = useLoreStore((s) => s.lists);
+  const listMetadata = useLoreStore((s) => s.listMetadata);
   const [target, setTarget] = useState("nodeFields");
   const [isAdding, setIsAdding] = useState(false);
   const [newField, setNewField] = useState({
@@ -391,16 +389,14 @@ function SchemaTab() {
     LISTS TAB
 ════════════════════════════════════════════ */
 function ListsTab() {
-  const {
-    lists,
-    listMetadata,
-    addToList,
-    removeItemFromList,
-    createNewList,
-    deleteList,
-    updateItemInList,
-    updateVariable,
-  } = useLoreStore();
+  const lists = useLoreStore((s) => s.lists);
+  const listMetadata = useLoreStore((s) => s.listMetadata);
+  const addToList = useLoreStore((s) => s.addToList);
+  const removeItemFromList = useLoreStore((s) => s.removeItemFromList);
+  const createNewList = useLoreStore((s) => s.createNewList);
+  const deleteList = useLoreStore((s) => s.deleteList);
+  const updateItemInList = useLoreStore((s) => s.updateItemInList);
+  const updateVariable = useLoreStore((s) => s.updateVariable);
 
   const [isCreating, setIsCreating] = useState(false);
   const [itemInputs, setItemInputs] = useState({});
@@ -892,17 +888,15 @@ function NewListForm({ onComplete, onCancel }) {
     REGISTRY TAB
 ════════════════════════════════════════════ */
 function RegistryTab() {
-  const {
-    conversationRegistry,
-    registerNpc,
-    deleteNpcFromRegistry,
-    addRegistryRule,
-    updateRegistryRule,
-    deleteRegistryRule,
-    lists,
-    listMetadata,
-    graphs,
-  } = useLoreStore();
+  const conversationRegistry = useLoreStore((s) => s.conversationRegistry);
+  const registerNpc = useLoreStore((s) => s.registerNpc);
+  const deleteNpcFromRegistry = useLoreStore((s) => s.deleteNpcFromRegistry);
+  const addRegistryRule = useLoreStore((s) => s.addRegistryRule);
+  const updateRegistryRule = useLoreStore((s) => s.updateRegistryRule);
+  const deleteRegistryRule = useLoreStore((s) => s.deleteRegistryRule);
+  const lists = useLoreStore((s) => s.lists);
+  const listMetadata = useLoreStore((s) => s.listMetadata);
+  const graphs = useLoreStore((s) => s.graphs);
 
   const [newNpcName, setNewNpcName] = useState("");
 
@@ -1198,7 +1192,10 @@ function RegistryTab() {
     ENVIRONMENT TAB (INJECTED)
 ════════════════════════════════════════════ */
 function EnvironmentTab() {
-  const { collectionDisplayMode, setCollectionDisplayMode } = useLoreStore();
+  const collectionDisplayMode = useLoreStore((s) => s.collectionDisplayMode);
+  const setCollectionDisplayMode = useLoreStore(
+    (s) => s.setCollectionDisplayMode,
+  );
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1214,11 +1211,16 @@ function EnvironmentTab() {
 
       <div className="grid grid-cols-1 gap-6">
         <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5 shadow-sm">
-          <h4 className="text-xs font-black uppercase text-gray-800 mb-2">Collection Display Mode</h4>
+          <h4 className="text-xs font-black uppercase text-gray-800 mb-2">
+            Collection Display Mode
+          </h4>
           <p className="text-[10px] font-medium text-gray-500 mb-4 leading-relaxed max-w-2xl">
-            Choose how collections operate on the main canvas. "Regular Mode" renders collections as massive visual boxes that contain your nodes. "Isolated Mode" allows you to double-click a collection to shrink the canvas and focus exclusively on its internal nodes.
+            Choose how collections operate on the main canvas. "Regular Mode"
+            renders collections as massive visual boxes that contain your nodes.
+            "Isolated Mode" allows you to double-click a collection to shrink
+            the canvas and focus exclusively on its internal nodes.
           </p>
-          
+
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => setCollectionDisplayMode("regular")}
@@ -1229,10 +1231,18 @@ function EnvironmentTab() {
               }`}
             >
               <div className="flex items-center gap-2 mb-1">
-                <div className={`w-3 h-3 rounded-full ${collectionDisplayMode === "regular" ? "bg-blue-500" : "bg-gray-300"}`} />
-                <span className={`text-xs font-black uppercase ${collectionDisplayMode === "regular" ? "text-blue-700" : "text-gray-600"}`}>Regular Mode</span>
+                <div
+                  className={`w-3 h-3 rounded-full ${collectionDisplayMode === "regular" ? "bg-blue-500" : "bg-gray-300"}`}
+                />
+                <span
+                  className={`text-xs font-black uppercase ${collectionDisplayMode === "regular" ? "text-blue-700" : "text-gray-600"}`}
+                >
+                  Regular Mode
+                </span>
               </div>
-              <span className="text-[10px] text-gray-500 block ml-5">All nodes rendered on a single massive canvas.</span>
+              <span className="text-[10px] text-gray-500 block ml-5">
+                All nodes rendered on a single massive canvas.
+              </span>
             </button>
 
             <button
@@ -1244,10 +1254,18 @@ function EnvironmentTab() {
               }`}
             >
               <div className="flex items-center gap-2 mb-1">
-                <div className={`w-3 h-3 rounded-full ${collectionDisplayMode === "isolated" ? "bg-indigo-500" : "bg-gray-300"}`} />
-                <span className={`text-xs font-black uppercase ${collectionDisplayMode === "isolated" ? "text-indigo-700" : "text-gray-600"}`}>Isolated Mode</span>
+                <div
+                  className={`w-3 h-3 rounded-full ${collectionDisplayMode === "isolated" ? "bg-indigo-500" : "bg-gray-300"}`}
+                />
+                <span
+                  className={`text-xs font-black uppercase ${collectionDisplayMode === "isolated" ? "text-indigo-700" : "text-gray-600"}`}
+                >
+                  Isolated Mode
+                </span>
               </div>
-              <span className="text-[10px] text-gray-500 block ml-5">Double-click collections to drill-down into focused workspaces.</span>
+              <span className="text-[10px] text-gray-500 block ml-5">
+                Double-click collections to drill-down into focused workspaces.
+              </span>
             </button>
           </div>
         </div>

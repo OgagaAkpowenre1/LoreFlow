@@ -7,7 +7,10 @@ import { useLoreStore } from "../store";
 import { GitBranch, Plus } from "lucide-react";
 
 export default function SceneForm({ node }) {
-  const { schema, updateNodeData, lists, listMetadata } = useLoreStore(); 
+  const schema = useLoreStore((s) => s.schema);
+  const updateNodeData = useLoreStore((s) => s.updateNodeData);
+  const lists = useLoreStore((s) => s.lists);
+  const listMetadata = useLoreStore((s) => s.listMetadata);
 
   return (
     <div className="space-y-6">

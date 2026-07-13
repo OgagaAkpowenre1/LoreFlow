@@ -13,8 +13,10 @@ import {
 } from "lucide-react";
 
 export default function SearchModal({ isOpen, onClose }) {
-  const { graphs, activeGraph, setEditingNode, setFocusedCollectionId } =
-    useLoreStore();
+  const graphs = useLoreStore((s) => s.graphs);
+  const activeGraph = useLoreStore((s) => s.activeGraph);
+  const setEditingNode = useLoreStore((s) => s.setEditingNode);
+  const setFocusedCollectionId = useLoreStore((s) => s.setFocusedCollectionId);
   const { setCenter } = useReactFlow();
   const [query, setQuery] = useState("");
 

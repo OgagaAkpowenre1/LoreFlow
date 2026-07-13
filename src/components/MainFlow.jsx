@@ -396,6 +396,7 @@ const edgeTypes = {
 };
 
 function FlowContent() {
+  console.log("Flow Content Rendered")
   // ── ZUSTAND SELECTORS ──
   // Each field is subscribed individually so a change to an unrelated slice
   // of the store (a toast, some other UI flag, etc.) does NOT re-render

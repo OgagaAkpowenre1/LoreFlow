@@ -32,20 +32,33 @@ export default function Navbar() {
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
 
-  const {
-    projectName,
-    updateProjectName,
-    addNode,
-    exportProject,
-    exportGameData,
-    exportStringsCSV,
-    groupSelectedNodes,
-    moveToCollection,
-    deleteProject,
-    clearGraph,
-    graphs,
-    activeGraph,
-  } = useLoreStore();
+  // const {
+  //   projectName,
+  //   updateProjectName,
+  //   addNode,
+  //   exportProject,
+  //   exportGameData,
+  //   exportStringsCSV,
+  //   groupSelectedNodes,
+  //   moveToCollection,
+  //   deleteProject,
+  //   clearGraph,
+  //   graphs,
+  //   activeGraph,
+  // } = useLoreStore();
+
+  const projectName = useLoreStore((s) => s.projectName);
+  const updateProjectName = useLoreStore((s) => s.updateProjectName);
+  const addNode = useLoreStore((s) => s.addNode);
+  const exportProject = useLoreStore((s) => s.exportProject);
+  const exportGameData = useLoreStore((s) => s.exportGameData);
+  const exportStringsCSV = useLoreStore((s) => s.exportStringsCSV);
+  const groupSelectedNodes = useLoreStore((s) => s.groupSelectedNodes);
+  const moveToCollection = useLoreStore((s) => s.moveToCollection);
+  const deleteProject = useLoreStore((s) => s.deleteProject);
+  const clearGraph = useLoreStore((s) => s.clearGraph);
+  const graphs = useLoreStore((s) => s.graphs);
+  const activeGraph = useLoreStore((s) => s.activeGraph);
 
   // Extract existing collections for the modal dropdown
   const currentNodes = graphs[activeGraph]?.nodes || [];
@@ -60,7 +73,7 @@ export default function Navbar() {
     // Pass the name to your store if it supports it, otherwise it defaults
     groupSelectedNodes(newGroupName.trim() || "Untitled Collection");
     setShowGroupModal(false);
-    setNewGroupName(""); 
+    setNewGroupName("");
   };
 
   const handleMoveToExisting = (collectionId) => {

@@ -3,7 +3,8 @@ import { useLoreStore } from "../store";
 import { Plus, ChevronDown, X } from "lucide-react";
 
 export default function SmartInput({ field, value, onChange }) {
-  const { lists, addToList } = useLoreStore();
+  const lists = useLoreStore((s) => s.lists);
+  const addToList = useLoreStore((s) => s.addToList);
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newValue, setNewValue] = useState("");
 
@@ -53,9 +54,9 @@ export default function SmartInput({ field, value, onChange }) {
     };
 
     const handleCancel = () => {
-      setNewValue("")
-      setIsAddingNew(false)
-    }
+      setNewValue("");
+      setIsAddingNew(false);
+    };
 
     return (
       <div className="space-y-1">

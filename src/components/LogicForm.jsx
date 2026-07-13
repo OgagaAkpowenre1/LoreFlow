@@ -2,7 +2,7 @@ import LogicEditor from "./LogicEditor";
 import { useLoreStore } from "../store";
 
 export default function LogicForm({ node }) {
-  const { updateNodeData } = useLoreStore();
+  const updateNodeData = useLoreStore((s) => s.updateNodeData);
 
   return (
     <div className="space-y-4">

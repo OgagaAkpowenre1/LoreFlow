@@ -1,7 +1,9 @@
 import { useLoreStore } from "../store";
 
 export default function JumpForm({ node }) {
-  const { graphs, activeGraph, updateNodeData } = useLoreStore();
+  const graphs = useLoreStore((s) => s.graphs);
+  const activeGraph = useLoreStore((s) => s.activeGraph);
+  const updateNodeData = useLoreStore((s) => s.updateNodeData);
 
   // Get all graph names EXCEPT the one we are currently in
   const availableGraphs = Object.keys(graphs).filter(

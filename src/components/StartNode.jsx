@@ -1,8 +1,8 @@
-import React from "react";
+import {React, memo} from "react";
 import { Handle, Position } from "reactflow";
 import { Play } from "lucide-react";
 
-export default function StartNode({ selected }) {
+ function StartNode({ selected }) {
   return (
     <div
       className={`px-6 py-3 rounded-full bg-emerald-500 border-4 border-white shadow-xl transition-all ${
@@ -31,3 +31,5 @@ export default function StartNode({ selected }) {
     </div>
   );
 }
+
+export default memo(StartNode)

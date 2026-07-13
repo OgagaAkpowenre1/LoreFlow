@@ -3,7 +3,7 @@ import { useLoreStore } from "../store";
 import { Info } from "lucide-react";
 
 export default function CollectionForm({ node }) {
-  const { updateNodeData } = useLoreStore();
+  const updateNodeData = useLoreStore((s) => s.updateNodeData);
 
   return (
     <div className="space-y-6">

@@ -2,7 +2,9 @@ import React from "react";
 import { useLoreStore } from "../store";
 
 export default function SwitchForm({ node }) {
-  const { lists, listMetadata, updateNodeData } = useLoreStore();
+  const lists = useLoreStore((s) => s.lists);
+  const listMetadata = useLoreStore((s) => s.listMetadata);
+  const updateNodeData = useLoreStore((s) => s.updateNodeData);
 
   const stringVariables = Object.entries(lists)
     .filter(([id]) => listMetadata[id] === "variable")

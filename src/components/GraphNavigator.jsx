@@ -15,24 +15,22 @@ import {
 import { useLoreStore } from "../store";
 
 export default function GraphNavigator() {
-  const {
-    graphs,
-    activeGraph,
-    setActiveGraph,
-    addGraph,
-    deleteGraph,
-    renameGraph,
-    duplicateGraph,
-    startGraph,
-    setStartGraph,
-    sidebarOpen,
-    toggleSidebar,
-    graphFolders,
-    addFolder,
-    renameFolder,
-    deleteFolder,
-    moveGraphToFolder,
-  } = useLoreStore();
+  const graphs = useLoreStore((s) => s.graphs);
+  const activeGraph = useLoreStore((s) => s.activeGraph);
+  const setActiveGraph = useLoreStore((s) => s.setActiveGraph);
+  const addGraph = useLoreStore((s) => s.addGraph);
+  const deleteGraph = useLoreStore((s) => s.deleteGraph);
+  const renameGraph = useLoreStore((s) => s.renameGraph);
+  const duplicateGraph = useLoreStore((s) => s.duplicateGraph);
+  const startGraph = useLoreStore((s) => s.startGraph);
+  const setStartGraph = useLoreStore((s) => s.setStartGraph);
+  const sidebarOpen = useLoreStore((s) => s.sidebarOpen);
+  const toggleSidebar = useLoreStore((s) => s.toggleSidebar);
+  const graphFolders = useLoreStore((s) => s.graphFolders);
+  const addFolder = useLoreStore((s) => s.addFolder);
+  const renameFolder = useLoreStore((s) => s.renameFolder);
+  const deleteFolder = useLoreStore((s) => s.deleteFolder);
+  const moveGraphToFolder = useLoreStore((s) => s.moveGraphToFolder);
 
   const [search, setSearch] = useState("");
   const [renamingName, setRenamingName] = useState(null);

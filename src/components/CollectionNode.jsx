@@ -73,11 +73,9 @@
 //   );
 // }
 
-import React from "react";
-import { NodeResizer } from "reactflow";
+import { React, memo } from "react";
+import { NodeResizer, Position, Handle } from "reactflow";
 import { useLoreStore } from "../store";
-import { Handle } from "reactflow";
-import { Position } from "reactflow";
 
 // Helper to force transparency on Hex or RGB strings
 const getTransparentColor = (color, opacity = 0.2) => {
@@ -97,11 +95,12 @@ const getTransparentColor = (color, opacity = 0.2) => {
   return color;
 };
 
-export default function CollectionNode({ id, data, selected }) {
+function CollectionNode({ id, data, selected }) {
   const baseColor = data.color || "#6366f1";
   const transparentBg = getTransparentColor(baseColor, 0.15);
 
-  const { setFocusedCollectionId, collectionDisplayMode } = useLoreStore();
+  const setFocusedCollectionId = useLoreStore((s) => s.setFocusedCollectionId);
+  const collectionDisplayMode = useLoreStore((s) => s.collectionDisplayMode);
 
   const handleDrillDown = (e) => {
     if (collectionDisplayMode === "isolated") {
@@ -216,3 +215,5 @@ export default function CollectionNode({ id, data, selected }) {
     </>
   );
 }
+
+export default memo(CollectionNode)

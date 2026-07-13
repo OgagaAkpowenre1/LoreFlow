@@ -1,7 +1,8 @@
 import { Handle, Position } from "reactflow";
 import { MoveRight } from "lucide-react";
+import { memo } from "react";
 
-export default function JumpNode({ data, selected }) {
+function JumpNode({ data, selected }) {
   return (
     <div
       className={`w-48 rounded-xl bg-gray-900 border-2 p-3 transition-all duration-300 ${
@@ -38,3 +39,5 @@ export default function JumpNode({ data, selected }) {
     </div>
   );
 }
+
+export default memo(JumpNode);

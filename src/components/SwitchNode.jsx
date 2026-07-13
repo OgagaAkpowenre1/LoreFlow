@@ -1,10 +1,11 @@
-import React from "react";
+import {React, memo} from "react";
 import { Handle, Position } from "reactflow";
 import { useLoreStore } from "../store";
 import { GitFork } from "lucide-react";
 
-export default function SwitchNode({ id, data, selected }) {
-  const { lists, listMetadata } = useLoreStore();
+ function SwitchNode({ id, data, selected }) {
+  const lists = useLoreStore((s) => s.lists);
+  const listMetadata = useLoreStore((s) => s.listMetadata);
 
   const allVariables = Object.entries(lists)
     .filter(([key]) => listMetadata[key] === "variable")
@@ -75,3 +76,5 @@ return (
   </div>
 );
 }
+
+export default memo(SwitchNode)
