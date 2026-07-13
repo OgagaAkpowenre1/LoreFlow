@@ -5,6 +5,7 @@ import SettingsEditor from "./components/SettingsEditor";
 import GraphNavigator from "./components/GraphNavigator";
 import Simulator from "./components/Simulator";
 import { ReactFlowProvider } from "reactflow";
+import PerformanceMonitor from "./components/PerformanceEditor";
 
 export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -36,6 +37,7 @@ export default function App() {
       <Simulator />
 
       <GraphNavigator />
+      {process.env.NODE_ENV === "development" && <PerformanceMonitor />}
     </div>
   );
 }
