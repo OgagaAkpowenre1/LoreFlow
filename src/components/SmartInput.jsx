@@ -3,8 +3,11 @@ import { useLoreStore } from "../store";
 import { Plus, ChevronDown, X } from "lucide-react";
 
 export default function SmartInput({ field, value, onChange }) {
+  // ✅ ALL HOOKS MUST BE AT THE VERY TOP
   const lists = useLoreStore((s) => s.lists);
   const addToList = useLoreStore((s) => s.addToList);
+  const listMetadata = useLoreStore((s) => s.listMetadata); // Moved up and wrapped in a selector!
+
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newValue, setNewValue] = useState("");
 
@@ -32,22 +35,17 @@ export default function SmartInput({ field, value, onChange }) {
 
   // 2. List / Dropdown with "Add New" Logic
   if (field.type === "list") {
-    const { listMetadata } = useLoreStore(); // Get metadata to check list type
     const options = lists[field.listId] || [];
     const isVariableList = listMetadata?.[field.listId] === "variable";
 
     const handleAddNew = () => {
       if (newValue.trim()) {
-        // If it's a variable list, we MUST add an object, not a string
         const itemToAdd = isVariableList
           ? { name: newValue.trim(), type: "boolean" }
           : newValue.trim();
 
         addToList(field.listId, itemToAdd);
-
-        // For the node's data, we only want to store the NAME string
         onChange(isVariableList ? itemToAdd.name : itemToAdd);
-
         setNewValue("");
         setIsAddingNew(false);
       }

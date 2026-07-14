@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { memo, useState } from "react";
 import { useLoreStore, ALLOWED_TYPES } from "../store";
 import {
   Trash2,
@@ -16,7 +16,7 @@ import {
   Monitor,
 } from "lucide-react";
 
-export default function SettingsEditor({ isOpen, onClose }) {
+function SettingsEditor({ isOpen, onClose }) {
   const [activeTab, setActiveTab] = useState("schema");
   if (!isOpen) return null;
 
@@ -1273,3 +1273,5 @@ function EnvironmentTab() {
     </div>
   );
 }
+
+export default memo(SettingsEditor);

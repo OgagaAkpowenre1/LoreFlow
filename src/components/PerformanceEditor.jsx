@@ -140,10 +140,10 @@ export default function PerformanceMonitor() {
         Check console for detailed timing logs
       </p>
       <button
-        onClick={() => generateStressTestGraph(50)}
+        onClick={() => generateStressTestGraph(500)}
         className="mt-2 bg-blue-600 px-2 py-1 rounded text-[10px] hover:bg-blue-700"
       >
-        Generate 50 Nodes
+        Generate 500 Nodes
       </button>
       <button
         onClick={() => generateStressTestGraph(5000)}

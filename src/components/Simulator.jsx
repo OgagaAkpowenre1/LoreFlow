@@ -13,14 +13,12 @@ import {
 } from "lucide-react";
 
 export default function Simulator() {
-  const {
-    isSimulatorOpen,
-    toggleSimulator,
-    graphs,
-    lists,
-    listMetadata,
-    conversationRegistry,
-  } = useLoreStore();
+  const isSimulatorOpen = useLoreStore((s) => s.isSimulatorOpen);
+  const toggleSimulator = useLoreStore((s) => s.toggleSimulator);
+  const graphs = useLoreStore((s) => s.graphs);
+  const lists = useLoreStore((s) => s.lists);
+  const listMetadata = useLoreStore((s) => s.listMetadata);
+  const conversationRegistry = useLoreStore((s) => s.conversationRegistry);
 
   // ── SANDBOX STATE (The Emulator Memory) ──
   const [sandboxState, setSandboxState] = useState({});
@@ -118,7 +116,7 @@ export default function Simulator() {
   // };
 
   // Recursive step function - runs instantly through logic/switch nodes until it hits a scene
-  
+
   const getNextNodeId = (nodeId, graphName, sourceHandle = null) => {
     const edges = graphs[graphName].edges;
 
@@ -148,7 +146,7 @@ export default function Simulator() {
 
     return edge ? edge.target : null;
   };
-  
+
   const stepToNode = (nodeId, graphName) => {
     if (!nodeId) {
       addLog("End of graph reached.", "system");

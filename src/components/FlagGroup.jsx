@@ -3,7 +3,9 @@ import { useLoreStore } from "../store";
 import { Plus, Minus, Equal, X } from "lucide-react";
 
 export default function FlagGroup({ value = [], onChange }) {
-  const { lists, addToList, listMetadata } = useLoreStore();
+  const lists = useLoreStore((s) => s.lists);
+  const addToList = useLoreStore((s) => s.addToList);
+  const listMetadata = useLoreStore((s) => s.listMetadata);
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newFlagName, setNewFlagName] = useState("");
 

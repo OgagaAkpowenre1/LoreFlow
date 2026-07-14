@@ -43,7 +43,7 @@ function Navbar() {
   const moveToCollection = useLoreStore((s) => s.moveToCollection);
   const deleteProject = useLoreStore((s) => s.deleteProject);
   const clearGraph = useLoreStore((s) => s.clearGraph);
-  const graphs = useLoreStore((s) => s.graphs);
+  // const graphs = useLoreStore((s) => s.graphs);
   const activeGraph = useLoreStore((s) => s.activeGraph);
 
   // Extract existing collections for the modal dropdown
