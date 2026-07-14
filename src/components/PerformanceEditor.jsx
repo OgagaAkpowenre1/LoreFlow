@@ -17,7 +17,7 @@ export default function PerformanceMonitor() {
 
     // Generate stress-test graph after a short delay so DOM is ready
     const timer = setTimeout(() => {
-      generateStressTestGraph(500); // Start with 500 nodes, scale up from here
+      generateStressTestGraph(10); // Start with 500 nodes, scale up from here
     }, 1000);
 
     return () => clearTimeout(timer);
@@ -134,16 +134,16 @@ export default function PerformanceMonitor() {
   };
 
   return (
-    <div className="fixed bottom-4 left-4 bg-black text-white p-4 rounded-lg text-xs font-mono max-w-xs z-[10000]">
+    <div className="fixed bottom-4 right-4 bg-black text-white p-4 rounded-lg text-xs font-mono max-w-xs z-[10000]">
       <p>Performance Monitor Active</p>
       <p className="text-gray-400 text-[10px] mt-2">
         Check console for detailed timing logs
       </p>
       <button
-        onClick={() => generateStressTestGraph(1000)}
+        onClick={() => generateStressTestGraph(50)}
         className="mt-2 bg-blue-600 px-2 py-1 rounded text-[10px] hover:bg-blue-700"
       >
-        Generate 1000 Nodes
+        Generate 50 Nodes
       </button>
       <button
         onClick={() => generateStressTestGraph(5000)}

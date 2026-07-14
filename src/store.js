@@ -17,11 +17,17 @@ const getAbsolutePos = (node, nodes, depth = 0) => {
   };
 };
 
+// const createEmptyGraph = () => ({
+//   nodes: [],
+//   edges: [],
+//   viewport: { x: 0, y: 0, zoom: 1 },
+//   folder: null, // Fixed Bug #9: Explicit schema consistency initialization
+// });
+
 const createEmptyGraph = () => ({
   nodes: [],
   edges: [],
-  viewport: { x: 0, y: 0, zoom: 1 },
-  folder: null, // Fixed Bug #9: Explicit schema consistency initialization
+  folder: null,
 });
 
 const escapeCSV = (text) => {
@@ -56,6 +62,7 @@ export const useLoreStore = create(
       activeGraph: "Main Story",
       startGraph: "Main Story",
       graphs: { "Main Story": createEmptyGraph() },
+      viewports: { "Main Story": { x: 0, y: 0, zoom: 1 } },
       graphFolders: [],
       activeFolder: null,
       conversationRegistry: {},
@@ -256,6 +263,10 @@ export const useLoreStore = create(
         while (graphs[uniqueName]) uniqueName = `${name} ${counter++}`;
         set((state) => ({
           graphs: { ...state.graphs, [uniqueName]: createEmptyGraph() },
+          viewports: {
+            ...state.viewports,
+            [uniqueName]: { x: 0, y: 0, zoom: 1 },
+          },
           activeGraph: uniqueName,
         }));
       },
@@ -266,6 +277,15 @@ export const useLoreStore = create(
           const newGraphs = { ...state.graphs };
           newGraphs[newName] = newGraphs[oldName];
           delete newGraphs[oldName];
+
+          // ── INJECTED: Rename Viewport ──
+          const newViewports = { ...state.viewports };
+          newViewports[newName] = newViewports[oldName] || {
+            x: 0,
+            y: 0,
+            zoom: 1,
+          };
+          delete newViewports[oldName];
 
           const newRegistry = { ...state.conversationRegistry };
           Object.keys(newRegistry).forEach((npcId) => {
@@ -309,6 +329,7 @@ export const useLoreStore = create(
           return {
             graphs: newGraphs,
             conversationRegistry: newRegistry,
+            viewports: newViewports, // Added to return
             locales: newLocales,
             activeGraph:
               state.activeGraph === oldName ? newName : state.activeGraph,
@@ -320,6 +341,9 @@ export const useLoreStore = create(
         const graphs = { ...get().graphs };
         if (Object.keys(graphs).length <= 1) return;
         delete graphs[name];
+
+        const viewports = { ...get().viewports }; // Added
+        delete viewports[name]; // Added
 
         Object.keys(graphs).forEach((gKey) => {
           graphs[gKey] = {
@@ -333,13 +357,19 @@ export const useLoreStore = create(
         });
 
         const nextGraph = Object.keys(graphs)[0];
-        set({ graphs, activeGraph: nextGraph, editingNodeId: null });
+        set({ graphs, viewports, activeGraph: nextGraph, editingNodeId: null });
       },
 
       duplicateGraph: (name) => {
         const { graphs } = get();
         const sourceGraph = graphs[name];
         if (!sourceGraph) return;
+
+        const sourceViewport = get().viewports?.[name] || {
+          x: 0,
+          y: 0,
+          zoom: 1,
+        }; // Added
 
         let newName = `${name} (Copy)`;
         let counter = 1;
@@ -359,6 +389,7 @@ export const useLoreStore = create(
               edges: clonedEdges,
             },
           },
+          viewports: { ...state.viewports, [newName]: { ...sourceViewport } }, // Added
           activeGraph: newName,
         }));
       },
@@ -592,7 +623,7 @@ export const useLoreStore = create(
                   : type === "jump"
                     ? { targetGraph: "" }
                     : {},
-        }
+        };
 
         set((state) => {
           const currentGraph = state.graphs[activeGraph];
@@ -1853,15 +1884,29 @@ export const useLoreStore = create(
         });
       },
 
+      // onViewportChange: (viewport) => {
+      //   const { activeGraph, graphs } = get();
+      //   if (!graphs[activeGraph]) return;
+      //   set((state) => ({
+      //     graphs: {
+      //       ...state.graphs,
+      //       [activeGraph]: {
+      //         ...state.graphs[activeGraph],
+      //         viewport: { x: viewport.x, y: viewport.y, zoom: viewport.zoom },
+      //       },
+      //     },
+      //   }));
+      // },
+
       onViewportChange: (viewport) => {
-        const { activeGraph, graphs } = get();
-        if (!graphs[activeGraph]) return;
+        const { activeGraph } = get();
         set((state) => ({
-          graphs: {
-            ...state.graphs,
+          viewports: {
+            ...state.viewports,
             [activeGraph]: {
-              ...state.graphs[activeGraph],
-              viewport: { x: viewport.x, y: viewport.y, zoom: viewport.zoom },
+              x: viewport.x,
+              y: viewport.y,
+              zoom: viewport.zoom,
             },
           },
         }));
@@ -2207,6 +2252,7 @@ export const useLoreStore = create(
 
           const rawGraphs = data.graphs || { "Main Story": createEmptyGraph() };
           const sanitizedGraphs = {};
+          const sanitizedViewports = {}; // ── INJECTED ──
 
           Object.entries(rawGraphs).forEach(([name, gObj]) => {
             const verifiedNodes = (Array.isArray(gObj?.nodes) ? gObj.nodes : [])
@@ -2216,6 +2262,13 @@ export const useLoreStore = create(
             const xVal = Number(gObj?.viewport?.x);
             const yVal = Number(gObj?.viewport?.y);
             const zVal = Number(gObj?.viewport?.zoom);
+
+            // ── EXTRACT TO SEPARATE OBJECT ──
+            sanitizedViewports[name] = {
+              x: Number.isNaN(xVal) ? 0 : xVal,
+              y: Number.isNaN(yVal) ? 0 : yVal,
+              zoom: Number.isNaN(zVal) || zVal <= 0 ? 1 : zVal,
+            };
 
             sanitizedGraphs[name] = {
               nodes: verifiedNodes,
@@ -2239,6 +2292,7 @@ export const useLoreStore = create(
                 ? data.startGraph
                 : Object.keys(sanitizedGraphs)[0],
             graphs: sanitizedGraphs,
+            viewports: sanitizedViewports,
             lists:
               data.lists && typeof data.lists === "object"
                 ? data.lists

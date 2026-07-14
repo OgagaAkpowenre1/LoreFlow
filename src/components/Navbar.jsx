@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, memo } from "react";
 import {
   MessageSquare,
   GitBranch,
@@ -20,10 +20,11 @@ import {
   Search,
 } from "lucide-react";
 import { useLoreStore } from "../store";
+import { useShallow } from "zustand/shallow";
 import ImportButton from "./ImportButton";
 import SearchModal from "./SearchModal";
 
-export default function Navbar() {
+function Navbar() {
   const [isHidden, setIsHidden] = useState(false);
   const [showFileMenu, setShowFileMenu] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
@@ -31,21 +32,6 @@ export default function Navbar() {
   // ── INJECTED: Group Modal State ──
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
-
-  // const {
-  //   projectName,
-  //   updateProjectName,
-  //   addNode,
-  //   exportProject,
-  //   exportGameData,
-  //   exportStringsCSV,
-  //   groupSelectedNodes,
-  //   moveToCollection,
-  //   deleteProject,
-  //   clearGraph,
-  //   graphs,
-  //   activeGraph,
-  // } = useLoreStore();
 
   const projectName = useLoreStore((s) => s.projectName);
   const updateProjectName = useLoreStore((s) => s.updateProjectName);
@@ -61,13 +47,34 @@ export default function Navbar() {
   const activeGraph = useLoreStore((s) => s.activeGraph);
 
   // Extract existing collections for the modal dropdown
-  const currentNodes = graphs[activeGraph]?.nodes || [];
-  const existingCollections = currentNodes.filter(
-    (n) => n.type === "collection",
-  );
-  const hasSelectedNodes = currentNodes.some(
-    (n) => n.selected && n.type !== "collection",
-  );
+  // const currentNodes = graphs[activeGraph]?.nodes || [];
+  // const existingCollections = currentNodes.filter(
+  //   (n) => n.type === "collection",
+  // );
+  // 1. Boolean is a primitive. It is perfectly stable.
+  const hasSelectedNodes = useLoreStore((s) => {
+    const nodes = s.graphs[s.activeGraph]?.nodes || [];
+    return nodes.some((n) => n.selected && n.type !== "collection");
+  });
+
+  // 2. We turn the collections into a string: "id::title||id::title"
+  // Strings are primitives, so this will NEVER cause an infinite loop.
+  const collectionsString = useLoreStore((s) => {
+    const nodes = s.graphs[s.activeGraph]?.nodes || [];
+    return nodes
+      .filter((n) => n.type === "collection")
+      .map((n) => `${n.id}::${n.data?.title || "Unnamed Collection"}`)
+      .join("||");
+  });
+
+  // 3. We safely parse it back into the array shape your UI expects
+  const existingCollections = React.useMemo(() => {
+    if (!collectionsString) return [];
+    return collectionsString.split("||").map((item) => {
+      const [id, title] = item.split("::");
+      return { id, data: { title } };
+    });
+  }, [collectionsString]);
 
   const handleCreateNewGroup = () => {
     // Pass the name to your store if it supports it, otherwise it defaults
@@ -389,3 +396,5 @@ export default function Navbar() {
     </>
   );
 }
+
+export default memo(Navbar)
