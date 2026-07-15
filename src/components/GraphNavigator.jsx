@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, memo } from "react";
 import {
   Search,
   Plus,
@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useLoreStore } from "../store";
 
-export default function GraphNavigator() {
+function GraphNavigator() {
   const graphs = useLoreStore((s) => s.graphs);
   const activeGraph = useLoreStore((s) => s.activeGraph);
   const setActiveGraph = useLoreStore((s) => s.setActiveGraph);
@@ -439,3 +439,5 @@ export default function GraphNavigator() {
     </>
   );
 }
+
+export default memo(GraphNavigator)

@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from "react";
+import React, { memo, useEffect, useRef } from "react";
 import { useLoreStore } from "../store";
 
-export default function PerformanceMonitor() {
+function PerformanceMonitor() {
   const startTimeRef = useRef(null);
 
   useEffect(() => {
@@ -154,3 +154,5 @@ export default function PerformanceMonitor() {
     </div>
   );
 }
+
+export default memo(PerformanceMonitor)

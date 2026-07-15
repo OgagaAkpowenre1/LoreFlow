@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { useLoreStore } from "../store";
 import { Plus, ChevronDown, X } from "lucide-react";
 
-export default function SmartInput({ field, value, onChange }) {
+function SmartInput({ field, value, onChange }) {
   // ✅ ALL HOOKS MUST BE AT THE VERY TOP
   const lists = useLoreStore((s) => s.lists);
   const addToList = useLoreStore((s) => s.addToList);
@@ -132,3 +132,5 @@ export default function SmartInput({ field, value, onChange }) {
     />
   );
 }
+
+export default memo(SmartInput)

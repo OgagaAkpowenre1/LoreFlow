@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { memo, useEffect, useMemo, useRef, useCallback , useState} from "react";
 import ReactFlow, {
   ReactFlowProvider,
   useReactFlow,
@@ -6,6 +6,7 @@ import ReactFlow, {
   Controls,
   MiniMap,
   Panel,
+  applyNodeChanges
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { useLoreStore } from "../store/index";
@@ -306,15 +307,52 @@ function FlowContent() {
     }
   };
 
+    const [localNodes, setLocalNodes] = useState(displayNodes);
+    const isDraggingRef = useRef(false);
+
+    // Keep localNodes in sync with the store-derived projection,
+    // but don't clobber it mid-drag with a stale snapshot.
+    useEffect(() => {
+      if (!isDraggingRef.current) setLocalNodes(displayNodes);
+    }, [displayNodes]);
+
+    const handleNodesChange = useCallback(
+      (changes) => {
+        // Always update the local copy instantly — this is what <ReactFlow> renders,
+        // so dragging stays 60fps regardless of store/selector cost.
+        setLocalNodes((nds) => applyNodeChanges(changes, nds));
+
+        const dragging = changes.some(
+          (c) => c.type === "position" && c.dragging,
+        );
+        if (dragging) {
+          isDraggingRef.current = true;
+          return; // don't touch Zustand mid-drag
+        }
+
+        if (
+          changes.some((c) => c.type === "position" && c.dragging === false)
+        ) {
+          isDraggingRef.current = false;
+        }
+
+        onNodesChange(changes); // commit: drag-end, select, remove, dimensions, etc.
+      },
+      [onNodesChange],
+    );
+
   return (
     <div className="flex h-screen w-screen overflow-hidden">
       <Navbar />
 
       <div className="flex-grow h-full relative">
         <ReactFlow
-          nodes={displayNodes}
+          // nodes={displayNodes}
+          // edges={displayEdges}
+          // onNodesChange={onNodesChange}
+          nodes={localNodes}
           edges={displayEdges}
-          onNodesChange={onNodesChange}
+          onNodesChange={handleNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           nodeTypes={nodeTypes}
@@ -361,10 +399,12 @@ function FlowContent() {
   );
 }
 
-export default function MainFlow() {
+ function MainFlow() {
   return (
     <ReactFlowProvider>
       <FlowContent />
     </ReactFlowProvider>
   );
 }
+
+export default memo(MainFlow)

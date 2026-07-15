@@ -1,8 +1,8 @@
-import React, { useRef } from "react";
+import React, { memo, useRef } from "react";
 import { Upload } from "lucide-react";
 import { useLoreStore } from "../store";
 
-export default function ImportButton() {
+function ImportButton() {
   const fileInputRef = useRef(null);
   const importProject = useLoreStore((state) => state.importProject);
 
@@ -39,3 +39,5 @@ export default function ImportButton() {
     </>
   );
 }
+
+export default memo(ImportButton)

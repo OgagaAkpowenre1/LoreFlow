@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, memo } from "react";
 import { useReactFlow } from "reactflow";
 import { useLoreStore } from "../store";
 import {
@@ -12,7 +12,7 @@ import {
   AlignLeft,
 } from "lucide-react";
 
-export default function SearchModal({ isOpen, onClose }) {
+function SearchModal({ isOpen, onClose }) {
   const graphs = useLoreStore((s) => s.graphs);
   const activeGraph = useLoreStore((s) => s.activeGraph);
   const setEditingNode = useLoreStore((s) => s.setEditingNode);
@@ -212,3 +212,5 @@ export default function SearchModal({ isOpen, onClose }) {
     </div>
   );
 }
+
+export default memo(SearchModal)

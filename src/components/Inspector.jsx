@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, memo } from "react";
 import {
   Settings2,
   X,
@@ -17,7 +17,7 @@ import JumpForm from "./JumpForm";
 import SwitchForm from "./SwitchForm";
 import { useShallow } from "zustand/shallow";
 
-export default function Inspector({ selectedNode }) {
+function Inspector({ selectedNode }) {
   const setEditingNode = useLoreStore((s) => s.setEditingNode);
   const deleteNode = useLoreStore((s) => s.deleteNode);
   // Aliased to prevent conflict with React Flow's setNodes
@@ -421,3 +421,5 @@ export default function Inspector({ selectedNode }) {
     </aside>
   );
 }
+
+export default memo(Inspector)

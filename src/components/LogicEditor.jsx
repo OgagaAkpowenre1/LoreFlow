@@ -1,7 +1,8 @@
+import { memo } from "react";
 import { useLoreStore } from "../store";
 import { Plus, Trash2 } from "lucide-react";
 
-export default function LogicEditor({ nodeId, data }) {
+function LogicEditor({ nodeId, data }) {
   const lists = useLoreStore((s) => s.lists);
   const updateNodeData = useLoreStore((s) => s.updateNodeData);
   const listMetadata = useLoreStore((s) => s.listMetadata);
@@ -201,3 +202,5 @@ export default function LogicEditor({ nodeId, data }) {
     </div>
   );
 }
+
+export default memo(LogicEditor)

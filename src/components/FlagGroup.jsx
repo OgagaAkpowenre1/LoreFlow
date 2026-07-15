@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { memo, useState } from "react";
 import { useLoreStore } from "../store/index";
 import { Plus, Minus, Equal, X } from "lucide-react";
 
-export default function FlagGroup({ value = [], onChange }) {
+function FlagGroup({ value = [], onChange }) {
   const lists = useLoreStore((s) => s.lists);
   const addToList = useLoreStore((s) => s.addToList);
   const listMetadata = useLoreStore((s) => s.listMetadata);
@@ -252,3 +252,5 @@ export default function FlagGroup({ value = [], onChange }) {
     </div>
   );
 }
+
+export default memo(FlagGroup)

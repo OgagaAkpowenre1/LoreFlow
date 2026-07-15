@@ -1,8 +1,8 @@
-import React from "react";
+import {React, memo} from "react";
 import { Trash2, Plus, GitBranch, X } from "lucide-react";
 import { useLoreStore } from "../store/index";
 
-export default function ChoiceEditor({ value = [], onChange }) {
+function ChoiceEditor({ value = [], onChange }) {
   const lists = useLoreStore((s) => s.lists);
   const listMetadata = useLoreStore((s) => s.listMetadata);
 
@@ -251,3 +251,5 @@ export default function ChoiceEditor({ value = [], onChange }) {
     </div>
   );
 }
+
+export default memo(ChoiceEditor)

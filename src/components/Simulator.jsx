@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, memo } from "react";
 import { useLoreStore } from "../store";
 import {
   X,
@@ -12,7 +12,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 
-export default function Simulator() {
+function Simulator() {
   const isSimulatorOpen = useLoreStore((s) => s.isSimulatorOpen);
   const toggleSimulator = useLoreStore((s) => s.toggleSimulator);
   const graphs = useLoreStore((s) => s.graphs);
@@ -616,3 +616,5 @@ export default function Simulator() {
     </div>
   );
 }
+
+export default memo(Simulator)

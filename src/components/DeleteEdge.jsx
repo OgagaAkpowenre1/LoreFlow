@@ -1,8 +1,8 @@
-import React from "react";
+import React, { memo } from "react";
 import { getSmoothStepPath, EdgeLabelRenderer, BaseEdge } from "reactflow";
 import { X } from "lucide-react";
 
-export default function DeleteEdge(props) {
+function DeleteEdge(props) {
   const {
     id,
     sourceX,
@@ -78,3 +78,5 @@ export default function DeleteEdge(props) {
     </>
   );
 }
+
+export default memo(DeleteEdge)

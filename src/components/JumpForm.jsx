@@ -1,6 +1,7 @@
+import { memo } from "react";
 import { useLoreStore } from "../store";
 
-export default function JumpForm({ node }) {
+function JumpForm({ node }) {
   const graphs = useLoreStore((s) => s.graphs);
   const activeGraph = useLoreStore((s) => s.activeGraph);
   const updateNodeData = useLoreStore((s) => s.updateNodeData);
@@ -46,3 +47,5 @@ export default function JumpForm({ node }) {
     </div>
   );
 }
+
+export default memo(JumpForm)

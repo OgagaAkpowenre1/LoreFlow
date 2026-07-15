@@ -1,4 +1,4 @@
-import React from "react";
+import React, { memo } from "react";
 import SmartInput from "./SmartInput";
 import SequenceEditor from "./SequenceEditor";
 import ChoiceEditor from "./ChoiceEditor";
@@ -6,7 +6,7 @@ import FlagGroup from "./FlagGroup";
 import { useLoreStore } from "../store";
 import { GitBranch, Plus } from "lucide-react";
 
-export default function SceneForm({ node }) {
+function SceneForm({ node }) {
   const schema = useLoreStore((s) => s.schema);
   const updateNodeData = useLoreStore((s) => s.updateNodeData);
   const lists = useLoreStore((s) => s.lists);
@@ -66,3 +66,5 @@ export default function SceneForm({ node }) {
     </div>
   );
 }
+
+export default memo(SceneForm)

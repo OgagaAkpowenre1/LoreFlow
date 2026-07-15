@@ -1,7 +1,7 @@
-import React from "react";
+import React, { memo } from "react";
 import { useLoreStore } from "../store";
 
-export default function SwitchForm({ node }) {
+function SwitchForm({ node }) {
   const lists = useLoreStore((s) => s.lists);
   const listMetadata = useLoreStore((s) => s.listMetadata);
   const updateNodeData = useLoreStore((s) => s.updateNodeData);
@@ -41,3 +41,5 @@ export default function SwitchForm({ node }) {
     </div>
   );
 }
+
+export default memo(SwitchForm)

@@ -1,7 +1,8 @@
 import LogicEditor from "./LogicEditor";
 import { useLoreStore } from "../store";
+import { memo } from "react";
 
-export default function LogicForm({ node }) {
+function LogicForm({ node }) {
   const updateNodeData = useLoreStore((s) => s.updateNodeData);
 
   return (
@@ -38,3 +39,5 @@ export default function LogicForm({ node }) {
     </div>
   );
 }
+
+export default memo(LogicForm)

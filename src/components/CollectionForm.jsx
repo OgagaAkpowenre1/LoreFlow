@@ -1,8 +1,8 @@
-import React from "react";
+import React, { memo } from "react";
 import { useLoreStore } from "../store/index";
 import { Info } from "lucide-react";
 
-export default function CollectionForm({ node }) {
+function CollectionForm({ node }) {
   const updateNodeData = useLoreStore((s) => s.updateNodeData);
 
   return (
@@ -49,3 +49,5 @@ export default function CollectionForm({ node }) {
     </div>
   );
 }
+
+export default memo(CollectionForm)
