@@ -8,7 +8,7 @@ import ReactFlow, {
   Panel,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { useLoreStore } from "../store";
+import { useLoreStore } from "../store/index";
 import SceneNode from "./SceneNode";
 import LogicNode from "./LogicNode";
 import Inspector from "./Inspector";

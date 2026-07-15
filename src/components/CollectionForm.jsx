@@ -1,5 +1,5 @@
 import React from "react";
-import { useLoreStore } from "../store";
+import { useLoreStore } from "../store/index";
 import { Info } from "lucide-react";
 
 export default function CollectionForm({ node }) {

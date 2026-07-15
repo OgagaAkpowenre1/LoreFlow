@@ -1,6 +1,6 @@
 import React from "react";
 import { Trash2, Plus, GitBranch, X } from "lucide-react";
-import { useLoreStore } from "../store";
+import { useLoreStore } from "../store/index";
 
 export default function ChoiceEditor({ value = [], onChange }) {
   const lists = useLoreStore((s) => s.lists);

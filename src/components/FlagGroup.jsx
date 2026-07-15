@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useLoreStore } from "../store";
+import { useLoreStore } from "../store/index";
 import { Plus, Minus, Equal, X } from "lucide-react";
 
 export default function FlagGroup({ value = [], onChange }) {

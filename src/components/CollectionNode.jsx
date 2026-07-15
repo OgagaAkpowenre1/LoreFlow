@@ -75,7 +75,7 @@
 
 import { React, memo } from "react";
 import { NodeResizer, Position, Handle } from "reactflow";
-import { useLoreStore } from "../store";
+import { useLoreStore } from "../store/index";
 
 // Helper to force transparency on Hex or RGB strings
 const getTransparentColor = (color, opacity = 0.2) => {
