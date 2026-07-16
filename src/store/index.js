@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
+import { getActiveStorageAdapter } from "./persistAdapter";
 import { createCoreSlice } from "./coreSlice";
 import { createGraphSlice } from "./graphSlice";
 import { createFlowSlice } from "./flowSlice";
@@ -35,19 +36,10 @@ export const useLoreStore = create(
     }),
     {
       name: "lore-engine-storage",
-      // storage: createJSONStorage(() => localStorage),
-
-      // 1. DEBOUNCED STORAGE: Completely detaches 60FPS React state from Hard Drive I/O
-      storage: createJSONStorage(() => ({
-        getItem: (name) => localStorage.getItem(name),
-        setItem: (name, value) => {
-          clearTimeout(window.loreStoreTimeout);
-          window.loreStoreTimeout = setTimeout(() => {
-            localStorage.setItem(name, value);
-          }, 500); // Waits 500ms after your last action before hitting the disk
-        },
-        removeItem: (name) => localStorage.removeItem(name),
-      })),
+      // Backend is chosen by a separate mode flag (see persistAdapter.js) —
+      // defaults to localStorage, switches to IndexedDB once a project
+      // opts in (mode-switching UI/migration is a separate piece of work).
+      storage: createJSONStorage(() => getActiveStorageAdapter()),
 
       // Perf fix: without `partialize`, zustand's persist middleware
       // JSON.stringify's and writes the ENTIRE store to localStorage on
@@ -67,39 +59,25 @@ export const useLoreStore = create(
       // they're always empty, but they're kept in the persisted payload so
       // that a *fresh* load of an old (pre-migration) save still has them
       // available to migrate from.
-      // partialize: (state) => ({
-      //   projectName: state.projectName,
-      //   activeGraph: state.activeGraph,
-      //   startGraph: state.startGraph,
-      //   graphs: state.graphs,
-      //   viewports: state.viewports,
-      //   graphFolders: state.graphFolders,
-      //   activeFolder: state.activeFolder,
-      //   conversationRegistry: state.conversationRegistry,
-      //   sidebarOpen: state.sidebarOpen,
-      //   languages: state.languages,
-      //   currentLanguage: state.currentLanguage,
-      //   locales: state.locales,
-      //   schema: state.schema,
-      //   listMetadata: state.listMetadata,
-      //   lists: state.lists,
-      //   nodes: state.nodes,
-      //   edges: state.edges,
-      // }),
-
-      // 2. PARTIALIZE: Strip transient UI state out of the JSON string entirely
-      partialize: (state) => {
-        const {
-          editingNodeId,
-          isSimulatorOpen,
-          collectionDisplayMode,
-          focusedCollectionId,
-          // We keep 'graphs', 'schema', 'lists', etc.
-          ...persistentData
-        } = state;
-
-        return persistentData;
-      },
+      partialize: (state) => ({
+        projectName: state.projectName,
+        activeGraph: state.activeGraph,
+        startGraph: state.startGraph,
+        graphs: state.graphs,
+        viewports: state.viewports,
+        graphFolders: state.graphFolders,
+        activeFolder: state.activeFolder,
+        conversationRegistry: state.conversationRegistry,
+        sidebarOpen: state.sidebarOpen,
+        languages: state.languages,
+        currentLanguage: state.currentLanguage,
+        locales: state.locales,
+        schema: state.schema,
+        listMetadata: state.listMetadata,
+        lists: state.lists,
+        nodes: state.nodes,
+        edges: state.edges,
+      }),
 
       // Restored Legacy Automated Data-migration pipeline
       onRehydrateStorage: () => (state) => {

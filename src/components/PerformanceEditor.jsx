@@ -133,6 +133,96 @@ function PerformanceMonitor() {
     }, 500);
   };
 
+  const generateLightweightStressTest = (nodeCount) => {
+    const generateStart = performance.now();
+
+    const nodes = [];
+    const edges = [];
+
+    // Cycle through a few colors for visual distinction
+    const colors = ["#3b82f6", "#ef4444", "#22c55e", "#a855f7", "#f97316"];
+
+    for (let i = 0; i < nodeCount; i++) {
+      nodes.push({
+        id: `scene-${i}`,
+        type: "scene",
+        position: {
+          x: (i % 25) * 300,
+          y: Math.floor(i / 25) * 200,
+        },
+        data: {
+          title: `Scene ${i}`,
+          dialogueLines: [], // Empty payload
+          choices: [], // Empty payload
+          flags: [], // Empty payload
+          color: colors[i % colors.length],
+        },
+      });
+
+      // Link scenes sequentially
+      if (i > 0 && Math.random() > 0.3) {
+        // 70% of scenes chain to the next one
+        edges.push({
+          id: `e-${i - 1}-${i}`,
+          source: `scene-${i - 1}`,
+          target: `scene-${i}`,
+          sourceHandle: "default-output",
+        });
+      }
+
+      // Add some random cross-edges for branching
+      if (i > 5 && Math.random() > 0.9) {
+        edges.push({
+          id: `e-random-${i}-${Math.random()}`,
+          source: `scene-${Math.max(0, i - 5)}`,
+          target: `scene-${i}`,
+        });
+      }
+    }
+
+    const generateEnd = performance.now();
+    console.log(
+      `Generated ${nodeCount} lightweight nodes in ${(generateEnd - generateStart).toFixed(2)}ms`,
+    );
+
+    // Store it safely using the new decoupled viewport architecture
+    const storeStart = performance.now();
+    useLoreStore.setState((state) => ({
+      graphs: {
+        ...state.graphs,
+        "stress-test-light": {
+          nodes,
+          edges,
+          folder: null,
+        },
+      },
+      viewports: {
+        ...state.viewports,
+        "stress-test-light": { x: 0, y: 0, zoom: 0.5 },
+      },
+      activeGraph: "stress-test-light",
+    }));
+
+    const storeEnd = performance.now();
+    console.log(`Stored in Zustand in ${(storeEnd - storeStart).toFixed(2)}ms`);
+
+    // Log memory after (Chrome only, safely ignored in Firefox)
+    if (performance.memory) {
+      console.log(
+        `Heap after graph: ${(performance.memory.usedJSHeapSize / 1048576).toFixed(2)}MB`,
+      );
+    }
+
+    // Calculate displayNodes/displayEdges time by checking the next state
+    setTimeout(() => {
+      if (performance.memory) {
+        console.log(
+          `Heap stabilized: ${(performance.memory.usedJSHeapSize / 1048576).toFixed(2)}MB`,
+        );
+      }
+    }, 500);
+  };
+
   return (
     <div className="fixed bottom-4 right-4 bg-black text-white p-4 rounded-lg text-xs font-mono max-w-xs z-[10000]">
       <p>Performance Monitor Active</p>
@@ -140,19 +230,34 @@ function PerformanceMonitor() {
         Check console for detailed timing logs
       </p>
       <button
-        onClick={() => generateStressTestGraph(500)}
+        onClick={() => generateLightweightStressTest(50)}
         className="mt-2 bg-blue-600 px-2 py-1 rounded text-[10px] hover:bg-blue-700"
       >
-        Generate 500 Nodes
+        Generate 50 Nodes
       </button>
       <button
-        onClick={() => generateStressTestGraph(5000)}
+        onClick={() => generateLightweightStressTest(100)}
         className="mt-2 ml-2 bg-red-600 px-2 py-1 rounded text-[10px] hover:bg-red-700"
       >
-        Generate 5000 Nodes
+        Generate 100 Nodes
       </button>
     </div>
   );
 }
 
-export default memo(PerformanceMonitor)
+export default memo(PerformanceMonitor);
+
+// let totalBytes = 0;
+// for (let i = 0; i < localStorage.length; i++) {
+//   let key = localStorage.key(i);
+//   let value = localStorage.getItem(key);
+//   // Firefox stores data as UTF-16 strings (2 bytes per character)
+//   totalBytes += (key.length + value.length) * 2;
+// }
+// console.log(
+//   "Local Storage Used: " +
+//     (totalBytes / 1024).toFixed(2) +
+//     " KB (" +
+//     totalBytes +
+//     " bytes)",
+// );

@@ -316,30 +316,38 @@ function FlowContent() {
       if (!isDraggingRef.current) setLocalNodes(displayNodes);
     }, [displayNodes]);
 
-    const handleNodesChange = useCallback(
-      (changes) => {
-        // Always update the local copy instantly — this is what <ReactFlow> renders,
-        // so dragging stays 60fps regardless of store/selector cost.
-        setLocalNodes((nds) => applyNodeChanges(changes, nds));
+const handleNodesChange = useCallback(
+  (changes) => {
+    setLocalNodes((nds) => {
+      const updated = applyNodeChanges(changes, nds);
+      const isDragEnd = changes.some(
+        (c) => c.type === "position" && c.dragging === false,
+      );
 
-        const dragging = changes.some(
-          (c) => c.type === "position" && c.dragging,
+      if (isDragEnd) {
+        isDraggingRef.current = false;
+        // drag-end changes omit `position` — attach the real final position
+        // from our already-updated local copy before committing to the store
+        const commitChanges = changes.map((c) =>
+          c.type === "position" && c.dragging === false
+            ? { ...c, position: updated.find((n) => n.id === c.id)?.position }
+            : c,
         );
-        if (dragging) {
-          isDraggingRef.current = true;
-          return; // don't touch Zustand mid-drag
-        }
+        onNodesChange(commitChanges);
+        return updated;
+      }
 
-        if (
-          changes.some((c) => c.type === "position" && c.dragging === false)
-        ) {
-          isDraggingRef.current = false;
-        }
+      if (changes.some((c) => c.type === "position" && c.dragging)) {
+        isDraggingRef.current = true;
+        return updated;
+      }
 
-        onNodesChange(changes); // commit: drag-end, select, remove, dimensions, etc.
-      },
-      [onNodesChange],
-    );
+      onNodesChange(changes);
+      return updated;
+    });
+  },
+  [onNodesChange],
+);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden">
@@ -366,6 +374,7 @@ function FlowContent() {
               onViewportChange(viewport);
             }
           }}
+          onlyRenderVisibleElements={true}
         >
           <Background color="#f1f5f9" variant="dots" gap={20} />
 
