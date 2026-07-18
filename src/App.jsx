@@ -6,6 +6,7 @@ import GraphNavigator from "./components/GraphNavigator";
 import Simulator from "./components/Simulator";
 import { ReactFlowProvider } from "reactflow";
 import PerformanceMonitor from "./components/PerformanceEditor";
+import ToastContainer from "./components/ToastContainer";
 
 export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -38,6 +39,7 @@ export default function App() {
 
       <GraphNavigator />
       {process.env.NODE_ENV === "development" && <PerformanceMonitor />}
+      <ToastContainer />
     </div>
   );
 }

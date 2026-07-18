@@ -8,6 +8,7 @@ function FlagGroup({ value = [], onChange }) {
   const listMetadata = useLoreStore((s) => s.listMetadata);
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newFlagName, setNewFlagName] = useState("");
+  const addToast = useLoreStore((s) => s.addToast)
 
   // 1. Discover all active global variable data collections
   const variableListIds = Object.keys(listMetadata || {}).filter(
@@ -22,7 +23,11 @@ function FlagGroup({ value = [], onChange }) {
     if (cleanName) {
       // Check for structural naming conflicts before registering inline variables
       if (allAvailableVars.some((v) => v.name === cleanName)) {
-        alert("A variable with this name already exists globally.");
+        // alert("A variable with this name already exists globally.");
+        addToast({
+          type: "error",
+          message: "A variable with this name already exists globally.",
+        });
         return;
       }
 

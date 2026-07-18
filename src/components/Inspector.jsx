@@ -28,6 +28,7 @@ function Inspector({ selectedNode }) {
   const updateNodeData = useLoreStore((s) => s.updateNodeData);
   const removeFromGroup = useLoreStore((s) => s.removeFromGroup);
   const moveToCollection = useLoreStore((s) => s.moveToCollection);
+  const addToast = useLoreStore((s) => s.addToast);
 
   // Scoped to just the active graph's node array, instead of subscribing
   // to the whole `graphs` object. `graphs` is replaced wholesale on every
@@ -138,6 +139,10 @@ function Inspector({ selectedNode }) {
 
     if (trackNodeIds.size === 0) {
       alert("No downstream nodes connected to this branch.");
+      addToast({
+        type: "error",
+        message: "No downstream nodes connected to this branch.",
+      });
       return;
     }
 
@@ -422,4 +427,4 @@ function Inspector({ selectedNode }) {
   );
 }
 
-export default memo(Inspector)
+export default memo(Inspector);

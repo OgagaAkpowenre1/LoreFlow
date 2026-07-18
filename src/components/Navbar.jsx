@@ -45,6 +45,7 @@ function Navbar() {
   const clearGraph = useLoreStore((s) => s.clearGraph);
   // const graphs = useLoreStore((s) => s.graphs);
   const activeGraph = useLoreStore((s) => s.activeGraph);
+  const addToast = useLoreStore((s) => s.addToast);
 
   // Extract existing collections for the modal dropdown
   // const currentNodes = graphs[activeGraph]?.nodes || [];
@@ -163,6 +164,10 @@ function Navbar() {
               onClick={() => {
                 if (!hasSelectedNodes) {
                   alert("Select at least one node to group.");
+                  addToast({
+                    type: "error",
+                    message: "Select at least one node to group.",
+                  });
                   return;
                 }
                 setShowGroupModal(true);
@@ -397,4 +402,4 @@ function Navbar() {
   );
 }
 
-export default memo(Navbar)
+export default memo(Navbar);

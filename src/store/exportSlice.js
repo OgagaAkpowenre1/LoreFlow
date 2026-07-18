@@ -332,7 +332,10 @@ export const createExportSlice = (set, get) => ({
     try {
       const data = JSON.parse(jsonData);
       if (data.type !== "LORE_PROJECT_FILE")
-        return alert("Invalid file format.");
+        return get().addToast({
+          type: "error",
+          message: "Invalid file format.",
+        });
 
       const rawGraphs = data.graphs || { "Main Story": createEmptyGraph() };
       const sanitizedGraphs = {};
@@ -405,9 +408,15 @@ export const createExportSlice = (set, get) => ({
         activeGraph: Object.keys(sanitizedGraphs)[0],
         editingNodeId: null,
       });
-      alert("Project successfully validated and imported!");
+      get().addToast({
+        type: "success",
+        message: "Project successfully validated and imported!",
+      });
     } catch (e) {
-      alert("Fatal error parsing file data.");
+      get().addToast({
+        type: "error",
+        message: "Fatal error parsing file data.",
+      });
     }
   },
 });

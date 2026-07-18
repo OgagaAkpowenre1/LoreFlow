@@ -16,6 +16,10 @@ export const createCoreSlice = (set, get) => ({
   sidebarOpen: true, // Restored state property
   isSimulatorOpen: false,
 
+  // TOASTS — ephemeral notification queue. Not persisted (see index.js
+  // partialize) since a toast from a previous session has no meaning.
+  toasts: [],
+
   // LOCALIZATION STATE
   languages: ["en"],
   currentLanguage: "en",
@@ -119,4 +123,18 @@ export const createCoreSlice = (set, get) => ({
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })), // Restored Action
   toggleSimulator: () =>
     set((state) => ({ isSimulatorOpen: !state.isSimulatorOpen })),
+
+  // type: "success" | "error" | "info". duration is ms before auto-dismiss;
+  // pass null to require manual dismissal (e.g. for a persistent warning).
+  addToast: ({ type = "info", message, duration = 4000 }) => {
+    const id = crypto.randomUUID();
+    set((state) => ({ toasts: [...state.toasts, { id, type, message }] }));
+    if (duration !== null) {
+      setTimeout(() => get().dismissToast(id), duration);
+    }
+    return id;
+  },
+
+  dismissToast: (id) =>
+    set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) })),
 });
