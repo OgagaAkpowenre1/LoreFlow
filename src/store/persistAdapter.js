@@ -138,3 +138,5 @@ export function getActiveStorageAdapter() {
     ? indexedDBAdapter
     : localStorageAdapter;
 }
+
+// Untested
