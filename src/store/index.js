@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
-import { getActiveStorageAdapter } from "./persistAdapter";
+import { getActiveStorageAdapter, PERSIST_KEY } from "./persistAdapter";
 import { createCoreSlice } from "./coreSlice";
 import { createGraphSlice } from "./graphSlice";
 import { createFlowSlice } from "./flowSlice";

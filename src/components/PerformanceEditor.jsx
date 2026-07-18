@@ -17,7 +17,7 @@ function PerformanceMonitor() {
 
     // Generate stress-test graph after a short delay so DOM is ready
     const timer = setTimeout(() => {
-      generateStressTestGraph(10); // Start with 500 nodes, scale up from here
+      // generateStressTestGraph(10); // Start with 500 nodes, scale up from here
     }, 1000);
 
     return () => clearTimeout(timer);

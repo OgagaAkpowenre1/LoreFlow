@@ -1,5 +1,6 @@
-import React, { memo, useState } from "react";
+import React, { useState } from "react";
 import { useLoreStore, ALLOWED_TYPES } from "../store";
+import StorageModeSettings from "./StorageModeSettings";
 import {
   Trash2,
   Plus,
@@ -16,7 +17,7 @@ import {
   Monitor,
 } from "lucide-react";
 
-function SettingsEditor({ isOpen, onClose }) {
+export default function SettingsEditor({ isOpen, onClose }) {
   const [activeTab, setActiveTab] = useState("schema");
   if (!isOpen) return null;
 
@@ -397,7 +398,6 @@ function ListsTab() {
   const deleteList = useLoreStore((s) => s.deleteList);
   const updateItemInList = useLoreStore((s) => s.updateItemInList);
   const updateVariable = useLoreStore((s) => s.updateVariable);
-  const addToast = useLoreStore((s) => s.addToast);
 
   const [isCreating, setIsCreating] = useState(false);
   const [itemInputs, setItemInputs] = useState({});
@@ -432,10 +432,6 @@ function ListsTab() {
       : [];
     if (currentValues.includes(cleanVal)) {
       alert("This text match token option already exists.");
-      addToast({
-        type: "error",
-        message: "This text match token option already exists.",
-      });
       return;
     }
 
@@ -1274,9 +1270,9 @@ function EnvironmentTab() {
             </button>
           </div>
         </div>
+
+        <StorageModeSettings />
       </div>
     </div>
   );
 }
-
-export default memo(SettingsEditor);

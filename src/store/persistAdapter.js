@@ -22,6 +22,11 @@ export const STORAGE_MODES = {
   INDEXED_DB: "indexedDB",
 };
 
+// The single key persist writes the whole project blob under. Shared here
+// (rather than duplicated as a string literal in index.js) so the migration
+// function below is guaranteed to read/write the same key persist uses.
+export const PERSIST_KEY = "lore-engine-storage";
+
 const MODE_FLAG_KEY = "loreflow-storage-mode";
 const DEFAULT_MODE = STORAGE_MODES.LOCAL_STORAGE;
 
@@ -137,6 +142,28 @@ export function getActiveStorageAdapter() {
   return getStorageMode() === STORAGE_MODES.INDEXED_DB
     ? indexedDBAdapter
     : localStorageAdapter;
+}
+
+export async function migrateStorageMode(targetMode) {
+  const currentMode = getStorageMode();
+  if (targetMode === currentMode) {
+    return { migrated: false, reason: "already-active" };
+  }
+
+  const source =
+    currentMode === STORAGE_MODES.INDEXED_DB ? indexedDBRaw : localStorageRaw;
+  const destination =
+    targetMode === STORAGE_MODES.INDEXED_DB ? indexedDBRaw : localStorageRaw;
+
+  const existingBlob = await source.get(PERSIST_KEY);
+
+  if (existingBlob) {
+    await destination.set(PERSIST_KEY, existingBlob);
+  }
+
+  setStorageModeFlag(targetMode);
+
+  return { migrated: true, hadExistingData: Boolean(existingBlob) };
 }
 
 // Untested

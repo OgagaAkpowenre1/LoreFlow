@@ -108,7 +108,7 @@ export const createFlowSlice = (set, get) => ({
 
   // NODE LIFECYCLE MANAGEMENT MUTATORS
   addNode: (type) => {
-    const { activeGraph, graphs, focusedCollectionId } = get();
+    const { activeGraph, graphs, viewports, focusedCollectionId } = get();
     const currentGraph = graphs[activeGraph];
     if (!currentGraph) return;
 
@@ -119,7 +119,7 @@ export const createFlowSlice = (set, get) => ({
     // const centerX = (-x + window.innerWidth / 2.5) / zoom;
     // const centerY = (-y + window.innerHeight / 2) / zoom;
 
-    const vp = currentGraph.viewport || { x: 0, y: 0, zoom: 1 };
+    const vp = viewports[activeGraph] || { x: 0, y: 0, zoom: 1 };
     const vX = vp.x || 0;
     const vY = vp.y || 0;
     const vZoom = vp.zoom || 1;
