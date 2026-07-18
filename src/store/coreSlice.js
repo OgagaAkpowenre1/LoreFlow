@@ -20,6 +20,13 @@ export const createCoreSlice = (set, get) => ({
   // partialize) since a toast from a previous session has no meaning.
   toasts: [],
 
+  // LOADING STATE — for any operation that isn't instant (async storage
+  // reads, future IndexedDB migration). Not persisted for the same reason
+  // as toasts: a stale "loading" flag surviving a reload would be a bug,
+  // not a feature.
+  isBusy: false,
+  busyLabel: "",
+
   // LOCALIZATION STATE
   languages: ["en"],
   currentLanguage: "en",
@@ -137,4 +144,7 @@ export const createCoreSlice = (set, get) => ({
 
   dismissToast: (id) =>
     set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) })),
+
+  setBusy: (label = "Loading...") => set({ isBusy: true, busyLabel: label }),
+  clearBusy: () => set({ isBusy: false, busyLabel: "" }),
 });
