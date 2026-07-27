@@ -76,6 +76,78 @@ export const createGraphSlice = (set, get) => ({
         ],
         operators: ["==", "!=", ">", "<", ">=", "<="],
       },
+      // ── INJECTED: Wipe Metadata and Schema ──
+      listMetadata: {
+        characters: "string",
+        backgrounds: "string",
+        music_tracks: "string",
+        expressions: "string",
+        sfx_list: "string",
+        variables: "variable",
+        operators: "string",
+      },
+      schema: {
+        nodeFields: [
+          { id: "title", label: "Scene Title", type: "text", core: true },
+          {
+            id: "background",
+            label: "Background Image",
+            type: "list",
+            listId: "backgrounds",
+          },
+          { id: "flags", label: "Scene Flags", type: "flag_group", core: true },
+          {
+            id: "music",
+            label: "BGM Track",
+            type: "list",
+            listId: "music_tracks",
+          },
+          {
+            id: "dialogueLines",
+            label: "Dialogue Sequence",
+            type: "sequence",
+            core: true,
+          },
+          {
+            id: "choices",
+            label: "Branching Choices",
+            type: "choice_list",
+            core: true,
+          },
+        ],
+        sequenceFields: [
+          {
+            id: "speaker",
+            label: "Speaker",
+            type: "list",
+            listId: "characters",
+            core: true,
+          },
+          { id: "text", label: "Dialogue Text", type: "textarea", core: true },
+          {
+            id: "portrait",
+            label: "Portrait/Expression",
+            type: "list",
+            listId: "expressions",
+          },
+          { id: "sound", label: "SFX", type: "list", listId: "sfx_list" },
+        ],
+        logicFields: [
+          {
+            id: "check_flag",
+            label: "Target Flag",
+            type: "list",
+            listId: "available_flags",
+          },
+          {
+            id: "operator",
+            label: "Comparison",
+            type: "list",
+            listId: "operators",
+          },
+          { id: "value", label: "Value to Check", type: "text" },
+        ],
+      },
     });
   },
 
