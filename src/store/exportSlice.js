@@ -296,6 +296,7 @@ export const createExportSlice = (set, get) => ({
     const {
       graphs,
       lists,
+      listMetadata,
       schema,
       projectName,
       conversationRegistry,
@@ -315,6 +316,7 @@ export const createExportSlice = (set, get) => ({
       conversationRegistry,
       graphs,
       lists,
+      listMetadata,
       schema,
       languages,
       currentLanguage,
@@ -380,6 +382,10 @@ export const createExportSlice = (set, get) => ({
             : Object.keys(sanitizedGraphs)[0],
         graphs: sanitizedGraphs,
         viewports: sanitizedViewports,
+        listMetadata:
+          data.listMetadata && typeof data.listMetadata === "object"
+            ? data.listMetadata
+            : get().listMetadata,
         lists:
           data.lists && typeof data.lists === "object"
             ? data.lists
